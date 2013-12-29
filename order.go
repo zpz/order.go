@@ -2,7 +2,7 @@ package order
 
 import "sort"
 
-// Interface is a collection type that satisfies order.
+// OrderInterface is a collection type that satisfies order.
 // Typically this is a slice of structs that contain
 // an orderable field, such as int/float64/string, and an int field.
 // The int field is a helper that should not be used by the caller.
@@ -38,9 +38,7 @@ func OrderFill(data OrderInterface, idx []int) {
 	}
 }
 
-/*
 
-// FIXME: the Stable versions will be available with Go 1.2.
 
 func StableOrder(data OrderInterface) []int {
     idx := make([]int, data.Len())
@@ -61,12 +59,13 @@ func StableOrderFill(data OrderInterface, idx []int) {
     }
 }
 
-*/
+
 
 type float64Index struct {
 	x   float64
 	idx int
 }
+
 
 // isNaN is a copy of math.IsNaN to avoid dependence on the math
 // package.
@@ -100,8 +99,7 @@ func Float64sOrderFill(x []float64, idx []int) {
 	OrderFill(float64IndexSlice(xx), idx)
 }
 
-/*
-// FIXME: to be uncommented after Go 1.2 is out.
+
 
 func Float64sStableOrder(x []float64) []int {
     idx := make([]int, len(x))
@@ -117,7 +115,7 @@ func Float64sStableOrderFill(x []float64, idx []int) {
     }
     StableOrderFill(float64IndexSlice(xx), idx)
 }
-*/
+
 
 type intIndex struct {
 	x, idx int
@@ -149,8 +147,7 @@ func IntsOrderFill(x []int, idx []int) {
 	OrderFill(intIndexSlice(xx), idx)
 }
 
-/*
-// FIXME: to be uncommented after Go 1.2 is out.
+
 
 func IntsStableOrder(x []int) []int {
     idx := make([]int, len(x))
@@ -166,7 +163,7 @@ func IntsStableOrderFill(x []int, idx []int) {
     }
     StableOrderFill(intIndexSlice(xx), idx)
 }
-*/
+
 
 type stringIndex struct {
 	x   string
@@ -199,8 +196,7 @@ func StringsOrderFill(x []string, idx []int) {
 	OrderFill(stringIndexSlice(xx), idx)
 }
 
-/*
-// FIXME: to be uncommented after Go 1.2 is out.
+
 
 func StringsStableOrder(x []string) []int {
     idx := make([]int, len(x))
@@ -216,5 +212,5 @@ func StringsStableOrderFill(x []string, idx []int) {
     }
     StableOrderFill(stringIndexSlice(xx), idx)
 }
-*/
+
 

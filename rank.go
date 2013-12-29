@@ -23,8 +23,6 @@ func RankFill(data OrderInterface, idx []int) {
 
 
 
-/*
-// FIXME: to be uncommented after Go 1.2 is out.
 
 func StableRank(data OrderInterface) []int {
     idx := make([]int, data.Len())
@@ -40,7 +38,7 @@ func StableRankFill(data OrderInterface, idx []int) {
     order_to_rank(z, idx)
 }
 
-*/
+
 
 
 func Float64sRank(x []float64) []int {
@@ -57,8 +55,6 @@ func Float64sRankFill(x []float64, idx []int) {
 
 
 
-/*
-// FIXME: to be uncommented after go 1.2 is out.
 
 func Float64sStableRank(x []float64) []int {
     idx := make([]int, len(x))
@@ -72,7 +68,6 @@ func Float64sStableRankFill(x []float64, idx []int) {
     order_to_rank(z, idx)
 }
 
-*/
 
 
 func IntsRank(x []int) []int {
@@ -88,8 +83,6 @@ func IntsRankFill(x []int, idx []int) {
 }
 
 
-/*
-// FIXME: to be uncommented after go 1.2 is out.
 
 func IntsStableRank(x []int) []int {
     idx := make([]int, len(x))
@@ -102,7 +95,7 @@ func IntsStableRankFill(x []int, idx []int) {
     z := IntsStableOrder(x)
     order_to_rank(z, idx)
 }
-*/
+
 
 
 
@@ -119,9 +112,7 @@ func StringsRankFill(x []string, idx []int) {
 }
 
 
-/*
 
-// FIXME: to be uncommented after go 1.2 is out.
 
 func StringsStableRank(x []string) []int {
     idx := make([]int, len(x))
@@ -135,7 +126,6 @@ func StringsStableRankFill(x []string, idx []int) {
     order_to_rank(z, idx)
 }
 
-*/
 
 
 func order_to_rank(in, out []int) {
