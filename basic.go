@@ -214,64 +214,43 @@ func Sd(x []float64) (float64, float64) {
 
 
 
-func Shift_(x Numeric, amt float64) {
-    for i, n := 0, x.Len(); i < n; i++ {
-        x.Set(i, x.Get(i) + amt)
+
+func Shift(x []float64, amt float64) []float64 {
+    for i := range x {
+        x[i] += amt
     }
-}
-
-
-
-func Shift(x []float64, amt float64) {
-    Shift_(Float64Slice(x), amt)
+    return x
 }
 
 
 
 
-func Scale_(x Numeric, s float64) {
-    for i, n := 0, x.Len(); i < n; i++ {
-        x.Set(i, x.Get(i) * s)
+
+func Scale(x []float64, amt float64) []float64 {
+    for i := range x {
+        x[i] *= amt
     }
-}
-
-
-
-
-func Scale(x []float64, s float64) {
-    Scale_(Float64Slice(x), s)
+    return x
 }
 
 
 
 
 
-func Center_(x Numeric) {
-    m := Mean_(x)
-    Shift_(x, -m)
+func Center(x []float64) []float64 {
+    return Shift(x, -Mean(x))
 }
 
 
 
 
-func Center(x []float64) {
-    Center_(Float64Slice(x))
+func Standardize(x []float64) []float64 {
+    sd, mean := Sd(x)
+    for i := range x {
+        x[i] = (x[i] - mean) / sd
+    }
+    return x
 }
 
-
-
-
-func Standardize_(x Numeric) {
-    sd, mean := Sd_(x)
-    Shift_(x, -mean)
-    Scale_(x, 1./sd)
-}
-
-
-
-
-func Standardize(x []float64) {
-    Standardize_(Float64Slice(x))
-}
 
 
