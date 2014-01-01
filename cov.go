@@ -1,17 +1,70 @@
 package stats
 
 import (
-    "fmt"
+    "math"
     "github.com/gonum/floats"
 )
+
+
+
+
+func Cov(x, y Numeric) float64 {
+    n := x.Len()
+    assert(y.Len() == n, "lengths of x and y differ")
+
+    m_x, m_y, m_xy := 0.0, 0.0, 0.0
+    for i := 0; i < n; i++ {
+        r := 1.0 / float64(i + 1.0)
+        vx := x.Get(i)
+        vy := y.Get(i)
+        m_x += (vx - m_x) * r
+        m_y += (vy - m_y) * r
+        m_xy += (vx * vy - m_xy) * r
+    }
+
+    cov := m_xy - m_x * m_y
+    cov *= float64(n) / float64(n - 1.0)
+    return cov
+}
+
+
+
+
+
+func Cor(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
+    n := x.Len()
+    assert(y.Len() == n, "lengths of x and y differ")
+
+    m_x, m_y, m_xx, m_yy, m_xy := 0.0, 0.0, 0.0, 0.0, 0.0
+    for i := 0; i < n; i++ {
+        r := 1.0 / float64(i + 1.0)
+        vx := x.Get(i)
+        vy := y.Get(i)
+        m_x += (vx - m_x) * r
+        m_y += (vy - m_y) * r
+        m_xx += (vx * vx - m_xx) * r
+        m_yy += (vy * vy - m_yy) * r
+        m_xy += (vx * vy - m_xy) * r
+    }
+
+    r := float64(n) / float64(n - 1)
+    cov = (m_xy - m_x * m_y) * r
+    sd_x = math.Sqrt((m_xx - m_x * m_x) * r)
+    sd_y = math.Sqrt((m_yy - m_y * m_y) * r)
+    cor = cov / (sd_x * sd_y)
+
+    return cor, cov, sd_x, sd_y
+}
+
+
+
+
 
 
 // p is dimensionality;
 // n is number of points.
 func mean(x []float64, p, n int) []float64 {
-    if p * n != len(x) {
-        panic(fmt.Errorf("length of input data is wrong"))
-    }
+    assert(p * n == len(x), "length of input data is wrong")
 
     v := make([]float64, p)
 

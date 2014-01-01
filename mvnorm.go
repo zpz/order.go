@@ -4,7 +4,6 @@ import (
     "math"
     "github.com/skelterjohn/go.matrix"
     "github.com/gonum/floats"
-    "fmt"
 )
 
 
@@ -67,9 +66,7 @@ func (mvn *Mvnorm) DensityFill(
     mahalanobis_fill(x, mean, Sigma, z)
 
     logdet := Sigma.Det()
-    if logdet <= 0 {
-        panic("Mvnorm.Density: cov matrix is not p.d.")
-    }
+    assert(logdet > 0, "Mvnorm.Density: cov matrix is not p.d.")
     logdet = math.Log(logdet)
 
     floats.AddConst(float64(p) * Ln2Pi + logdet, z)
@@ -120,20 +117,14 @@ func (mvn *Mvnorm) RandomFill(
     Sigma := mvn.cov_matrix(cov)
 
     C, err := Sigma.Cholesky()
-    if err != nil {
-        panic(fmt.Errorf("Mvnorm.Random: Sigma.Cholesky() failed"))
-    }
+    assert(err == nil, "Mvnorm.Random: Sigma.Cholesky() failed")
 
     p := len(mean)
-    if Sigma.Rows() != p {
-        panic(fmt.Errorf("Mvnorm.Random: mu and Sigma sizes mismatch"))
-    }
+    assert(Sigma.Rows() == p, "Mvnorm.Random: mu and Sigma sizes mismatch")
 
     zz := matrix.MakeDenseMatrix(RNorm(p * n, 0., 1.), p, n)
     zz, err = C.TimesDense(zz)
-    if err != nil {
-        panic(fmt.Errorf("error in TimesDense"))
-    }
+    assert(err == nil, "error in TimesDense")
 
     for col := 0; col < n; col++ {
         zz.BufferCol(col, z[col*p :])

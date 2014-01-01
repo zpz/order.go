@@ -2,7 +2,6 @@ package stats
 
 import (
     "github.com/skelterjohn/go.matrix"
-    "fmt"
 )
 
 
@@ -41,9 +40,7 @@ func mahalanobis_fill(
     }
 
     yy, err := Sigma.Solve(Xt)
-    if err != nil {
-        panic(fmt.Errorf("mahalanobis: solver failed"))
-    }
+    assert(err == nil, "mahalanobis: solver failed")
     yy.ScaleMatrixDense(Xt)
 
     // Col sums of yy.

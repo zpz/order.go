@@ -3,8 +3,8 @@ package stats
 import (
     "math"
     "math/rand"
-    "fmt"
     "github.com/gonum/floats"
+    "fmt"
 )
 
 
@@ -59,9 +59,7 @@ func RNorm(n int, mean, variance float64) []float64 {
 // RNormFill is the same as RNorm except that the result
 // is returned in the provided slice.
 func RNormFill(n int, mean, variance float64, z []float64) {
-    if variance <= 0. {
-        panic(fmt.Errorf("RNormFill: variance is %v", variance))
-    }
+    assert(variance > 0., fmt.Sprintf("RNormFill: variance is %v", variance))
     sd := math.Sqrt(variance)
     for i := 0; i < n; i++ {
         z[i] = rand.NormFloat64() * sd + mean
