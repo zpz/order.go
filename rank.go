@@ -2,129 +2,20 @@ package stats
 
 
 
-// Rank returns the sample ranks of the elements in the collection data.
-// For example, Rank([]int{3, 5, 2, 6}) returns []int{1, 2, 0, 3}.
-func Rank(data OrderInterface) []int {
+
+func rank(data OrderInterface, r []int, stable bool) []int {
     idx := make([]int, data.Len())
-    RankFill(data, idx)
-    return idx
+    if stable {
+        StableOrder_(data, idx)
+    } else {
+        Order_(data, idx)
+    }
+
+    if r == nil { r = make([]int, data.Len()) }
+    order_to_rank(idx, r)
+    return r
 }
 
-
-
-
-// RankFill is the same as Rank, except that the return fills in the
-// provided int slice, hence avoiding some memory allocation.
-func RankFill(data OrderInterface, idx []int) {
-    z := Order(data)
-    order_to_rank(z, idx)
-}
-
-
-
-
-
-func StableRank(data OrderInterface) []int {
-    idx := make([]int, data.Len())
-    StableRankFill(data, idx)
-    return idx
-}
-
-
-
-
-func StableRankFill(data OrderInterface, idx []int) {
-    z := StableOrder(data)
-    order_to_rank(z, idx)
-}
-
-
-
-
-func Float64sRank(x []float64) []int {
-    idx := make([]int, len(x))
-    Float64sRankFill(x, idx)
-    return idx
-}
-
-
-func Float64sRankFill(x []float64, idx []int) {
-    z := Float64sOrder(x)
-    order_to_rank(z, idx)
-}
-
-
-
-
-func Float64sStableRank(x []float64) []int {
-    idx := make([]int, len(x))
-    Float64sStableRankFill(x, idx)
-    return idx
-}
-
-
-func Float64sStableRankFill(x []float64, idx []int) {
-    z := Float64sStableOrder(x)
-    order_to_rank(z, idx)
-}
-
-
-
-func IntsRank(x []int) []int {
-    idx := make([]int, len(x))
-    IntsRankFill(x, idx)
-    return idx
-}
-
-
-func IntsRankFill(x []int, idx []int) {
-    z := IntsOrder(x)
-    order_to_rank(z, idx)
-}
-
-
-
-func IntsStableRank(x []int) []int {
-    idx := make([]int, len(x))
-    IntsStableRankFill(x, idx)
-    return idx
-}
-
-
-func IntsStableRankFill(x []int, idx []int) {
-    z := IntsStableOrder(x)
-    order_to_rank(z, idx)
-}
-
-
-
-
-func StringsRank(x []string) []int {
-    idx := make([]int, len(x))
-    StringsRankFill(x, idx)
-    return idx
-}
-
-
-func StringsRankFill(x []string, idx []int) {
-    z := StringsOrder(x)
-    order_to_rank(z, idx)
-}
-
-
-
-
-func StringsStableRank(x []string) []int {
-    idx := make([]int, len(x))
-    StringsStableRankFill(x, idx)
-    return idx
-}
-
-
-func StringsStableRankFill(x []string, idx []int) {
-    z := StringsStableOrder(x)
-    order_to_rank(z, idx)
-}
 
 
 
@@ -133,3 +24,67 @@ func order_to_rank(in, out []int) {
         out[in[i]] = i
     }
 }
+
+
+// Rank_ returns the sample ranks of the elements in the collection data.
+// For example, conceptually, Rank_([]int{3, 5, 2, 6}) returns []int{1, 2, 0, 3}.
+// Note that the elements of data are re-ordered in this function.
+func Rank_(data OrderInterface, r []int) []int {
+    return rank(data, r, false)
+}
+
+
+
+
+func StableRank_(data OrderInterface, r []int) []int {
+    return rank(data, r, true)
+}
+
+
+
+
+
+func Rank(x []float64, r []int) []int {
+    return Rank_(make_float64_index_slice(x), r)
+}
+
+
+
+
+func StableRank(x []float64, r []int) []int {
+    return StableRank_(make_float64_index_slice(x), r)
+}
+
+
+
+
+
+
+func IntRank(x []int, r []int) []int {
+    return Rank_(make_int_index_slice(x), r)
+}
+
+
+
+
+func IntStableRank(x []int, r []int) []int {
+    return StableRank_(make_int_index_slice(x), r)
+}
+
+
+
+
+
+
+func StringRank(x []string, r []int) []int {
+    return Rank_(make_string_index_slice(x), r)
+}
+
+
+
+
+func StringStableRank(x []string, r []int) []int {
+    return StableRank_(make_string_index_slice(x), r)
+}
+
+

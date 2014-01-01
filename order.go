@@ -1,216 +1,206 @@
 package stats
 
-import "sort"
+import (
+    "math"
+    "sort"
+)
 
-// OrderInterface is a collection type that satisfies order.
+
+// OrderInterface is a collection type that satisfies order calculations.
 // Typically this is a slice of structs that contain
-// an orderable field, such as int/float64/string, and an int field.
-// The int field is a helper that should not be used by the caller.
+// an ordered field, such as int/float64/string, and an int field.
+// The int field is an internal helper.
 // Comparison of elements in the collection should rely solely on the
-// orderable field and should not involve the int field.
+// ordered field and should not involve the int field.
 // The int field is used by the order function as a scratch field.
 type OrderInterface interface {
 	sort.Interface
-	SetIndex(i, j int)
+
 	// Write j to the int field of the ith element.
-	GetIndex(i int) int
+	SetIndex(i, j int)
+
 	// Get the int field of the ith element.
+	GetIndex(i int) int
 }
 
-// Order returns an index array which would place the elements
-// of the input collection, i.e. data, into ascending order.
-// For example, Order([]int{3, 5, 2, 6}) returns []int{2, 0, 1, 3}.
-func Order(data OrderInterface) []int {
-	idx := make([]int, data.Len())
-	OrderFill(data, idx)
-	return idx
-}
 
-// OrderFill is the same as Order, except that the return fills in the
-// provided int slice, hence avoiding some memory allocation.
-func OrderFill(data OrderInterface, idx []int) {
-	for i := 0; i < data.Len(); i++ {
+
+func order(
+    data OrderInterface,
+    idx []int,
+    stable bool) []int {
+
+    n := data.Len()
+
+	for i := 0; i < n; i++ {
 		data.SetIndex(i, i)
 	}
-	sort.Sort(data)
-	for i := 0; i < data.Len(); i++ {
+
+    if stable {
+        sort.Stable(data)
+    } else {
+        sort.Sort(data)
+    }
+
+    if idx == nil {
+        idx = make([]int, n)
+    }
+	for i := 0; i < n; i++ {
 		idx[i] = data.GetIndex(i)
 	}
-}
-
-
-
-func StableOrder(data OrderInterface) []int {
-    idx := make([]int, data.Len())
-    StableOrderFill(data, idx)
-    return idx
+    return idx[0:n]
 }
 
 
 
 
-func StableOrderFill(data OrderInterface, idx []int) {
-    for i := 0; i < data.Len(); i++ {
-        data.SetIndex(i, i)
-    }
-    sort.Stable(data)
-    for i := 0; i < data.Len(); i++ {
-        idx[i] = data.GetIndex(i)
-    }
+// Order_ returns an index array which would place the elements
+// of the input collection, i.e. data, into ascending order.
+// For example, conceptually,
+// Order([]int{3, 5, 2, 6}) returns []int{2, 0, 1, 3}.
+//
+// If idx upon entry is nil, a new index slice is allocated, filled, and
+// returned.
+// If idx upon entry is not nil, it will be filled and returned.
+// If idx is not nil but does not have enough space, an error will result.
+//
+// Upon return, the elements in data have been re-ordered.
+func Order_(data OrderInterface, idx []int) []int {
+    return order(data, idx, false)
 }
 
 
 
-type float64Index struct {
+func StableOrder_(data OrderInterface, idx []int) []int {
+    return order(data, idx, true)
+}
+
+
+
+
+type float64_index struct {
 	x   float64
 	idx int
 }
 
 
-// isNaN is a copy of math.IsNaN to avoid dependence on the math
-// package.
-func isNaN(x float64) bool { return x != x }
+// Type float64_index_slide implements OrderInterface.
+type float64_index_slice []float64_index
 
-type float64IndexSlice []float64Index
-
-func (x float64IndexSlice) Len() int { return len(x) }
-
-func (x float64IndexSlice) Less(i, j int) bool {
-	return x[i].x < x[j].x || isNaN(x[i].x) && !isNaN(x[j].x)
+func (x float64_index_slice) Len() int { return len(x) }
+func (x float64_index_slice) Less(i, j int) bool {
+	return x[i].x < x[j].x || math.IsNaN(x[j].x)
 }
+func (x float64_index_slice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+func (x float64_index_slice) SetIndex(i, j int) { x[i].idx = j }
+func (x float64_index_slice) GetIndex(i int) int { return x[i].idx }
 
-func (x float64IndexSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
-func (x float64IndexSlice) SetIndex(i, j int) { x[i].idx = j }
 
-func (x float64IndexSlice) GetIndex(i int) int { return x[i].idx }
 
-func Float64sOrder(x []float64) []int {
-	idx := make([]int, len(x))
-	Float64sOrderFill(x, idx)
-	return idx
-}
-
-func Float64sOrderFill(x []float64, idx []int) {
-	xx := make([]float64Index, len(x))
+func make_float64_index_slice(x []float64) float64_index_slice {
+	xx := make([]float64_index, len(x))
 	for i := range x {
 		xx[i].x = x[i]
 	}
-	OrderFill(float64IndexSlice(xx), idx)
+    return float64_index_slice(xx)
 }
 
 
 
-func Float64sStableOrder(x []float64) []int {
-    idx := make([]int, len(x))
-    Float64sStableOrderFill(x, idx)
-    return idx
+
+
+// The input data x is not changed in this operation.
+func Order(x []float64, idx []int) []int {
+	return Order_(make_float64_index_slice(x), idx)
 }
 
 
-func Float64sStableOrderFill(x []float64, idx []int) {
-    xx := make([]float64Index, len(x))
-    for i := range x {
-        xx[i].x = x[i]
-    }
-    StableOrderFill(float64IndexSlice(xx), idx)
+
+
+// The input data x is not changed in this operation.
+func StableOrder(x []float64, idx []int) []int {
+	return StableOrder_(make_float64_index_slice(x), idx)
 }
 
 
-type intIndex struct {
+
+type int_index struct {
 	x, idx int
 }
 
-type intIndexSlice []intIndex
+// int_index_slice implements OrderInterface.
+type int_index_slice []int_index
 
-func (x intIndexSlice) Len() int { return len(x) }
+func (x int_index_slice) Len() int { return len(x) }
+func (x int_index_slice) Less(i, j int) bool { return x[i].x < x[j].x }
+func (x int_index_slice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+func (x int_index_slice) SetIndex(i, j int) { x[i].idx = j }
+func (x int_index_slice) GetIndex(i int) int { return x[i].idx }
 
-func (x intIndexSlice) Less(i, j int) bool { return x[i].x < x[j].x }
 
-func (x intIndexSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
-func (x intIndexSlice) SetIndex(i, j int) { x[i].idx = j }
-
-func (x intIndexSlice) GetIndex(i int) int { return x[i].idx }
-
-func IntsOrder(x []int) []int {
-	idx := make([]int, len(x))
-	IntsOrderFill(x, idx)
-	return idx
-}
-
-func IntsOrderFill(x []int, idx []int) {
-	xx := make([]intIndex, len(x))
+func make_int_index_slice(x []int) int_index_slice {
+	xx := make([]int_index, len(x))
 	for i := range x {
 		xx[i].x = x[i]
 	}
-	OrderFill(intIndexSlice(xx), idx)
+    return int_index_slice(xx)
 }
 
 
 
-func IntsStableOrder(x []int) []int {
-    idx := make([]int, len(x))
-    IntsStableOrderFill(x, idx)
-    return idx
+
+func IntOrder(x []int, idx []int) []int {
+    return Order_(make_int_index_slice(x), idx)
 }
 
 
-func IntsStableOrderFill(x []int, idx []int) {
-    xx := make([]intIndex, len(x))
-    for i := range x {
-        xx[i].x = x[i]
-    }
-    StableOrderFill(intIndexSlice(xx), idx)
+
+
+func IntStableOrder(x []int, idx []int) []int {
+    return StableOrder_(make_int_index_slice(x), idx)
 }
 
 
-type stringIndex struct {
+
+
+type string_index struct {
 	x   string
 	idx int
 }
 
-type stringIndexSlice []stringIndex
 
-func (x stringIndexSlice) Len() int { return len(x) }
+// string_index_slice implements OrderInterface.
+type string_index_slice []string_index
 
-func (x stringIndexSlice) Less(i, j int) bool { return x[i].x < x[j].x }
+func (x string_index_slice) Len() int { return len(x) }
+func (x string_index_slice) Less(i, j int) bool { return x[i].x < x[j].x }
+func (x string_index_slice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+func (x string_index_slice) SetIndex(i, j int) { x[i].idx = j }
+func (x string_index_slice) GetIndex(i int) int { return x[i].idx }
 
-func (x stringIndexSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
-func (x stringIndexSlice) SetIndex(i, j int) { x[i].idx = j }
 
-func (x stringIndexSlice) GetIndex(i int) int { return x[i].idx }
-
-func StringsOrder(x []string) []int {
-	idx := make([]int, len(x))
-	StringsOrderFill(x, idx)
-	return idx
-}
-
-func StringsOrderFill(x []string, idx []int) {
-	xx := make([]stringIndex, len(x))
+func make_string_index_slice(x []string) string_index_slice {
+	xx := make([]string_index, len(x))
 	for i := range x {
 		xx[i].x = x[i]
 	}
-	OrderFill(stringIndexSlice(xx), idx)
+    return string_index_slice(xx)
 }
 
 
 
-func StringsStableOrder(x []string) []int {
-    idx := make([]int, len(x))
-    StringsStableOrderFill(x, idx)
-    return idx
+
+func StringOrder(x []string, idx []int) []int {
+    return Order_(make_string_index_slice(x), idx)
 }
 
 
-func StringsStableOrderFill(x []string, idx []int) {
-    xx := make([]stringIndex, len(x))
-    for i := range x {
-        xx[i].x = x[i]
-    }
-    StableOrderFill(stringIndexSlice(xx), idx)
-}
 
+
+func StringStableOrder(x []string, idx []int) []int {
+    return StableOrder_(make_string_index_slice(x), idx)
+}
 
