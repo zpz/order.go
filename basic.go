@@ -214,31 +214,8 @@ func Sd(x []float64) (float64, float64) {
 
 
 
-
-func Shift(x []float64, amt float64) []float64 {
-    for i := range x {
-        x[i] += amt
-    }
-    return x
-}
-
-
-
-
-
-func Scale(x []float64, amt float64) []float64 {
-    for i := range x {
-        x[i] *= amt
-    }
-    return x
-}
-
-
-
-
-
 func Center(x []float64) []float64 {
-    return Shift(x, -Mean(x))
+    return Shift(x, -Mean(x), x)
 }
 
 

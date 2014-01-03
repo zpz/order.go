@@ -3,7 +3,6 @@ package stats
 import (
     "math"
     "github.com/skelterjohn/go.matrix"
-    "github.com/gonum/floats"
 )
 
 
@@ -69,11 +68,11 @@ func (mvn *Mvnorm) DensityFill(
     assert(logdet > 0, "Mvnorm.Density: cov matrix is not p.d.")
     logdet = math.Log(logdet)
 
-    floats.AddConst(float64(p) * Ln2Pi + logdet, z)
-    floats.Scale(-0.5, z)
+    Shift(z, float64(p) * Ln2Pi + logdet, z)
+    Scale(z, -0.5, z)
 
     if !return_log {
-        floats.Apply(math.Exp, z)
+        Apply(z, math.Exp, z)
     }
 }
 
@@ -128,7 +127,8 @@ func (mvn *Mvnorm) RandomFill(
 
     for col := 0; col < n; col++ {
         zz.BufferCol(col, z[col*p :])
-        floats.Add(z[col*p : (col+1)*p], mean)
+        z_sub := z[col*p : (col+1)*p]
+        Add(z_sub, mean, z_sub)
     }
 
     // Alternative algorithm: see function 'mvrnom' in the R package

@@ -2,7 +2,6 @@ package stats
 
 import (
     "math"
-    "github.com/gonum/floats"
 )
 
 
@@ -85,7 +84,8 @@ func mean(x []float64, p, n int) []float64 {
 func centerize(x []float64, p, n int) {
     x_mean := mean(x, p, n)
     for i, j := 0, 0; i < n; i++ {
-        floats.Sub(x[j : (j+p)], x_mean)
+        z := x[j : (j+p)]
+        Subtract(z, x_mean, z)
         j += p
     }
 }

@@ -3,7 +3,6 @@ package stats
 import (
     "math"
     "math/rand"
-    "github.com/gonum/floats"
     "fmt"
 )
 
@@ -39,7 +38,7 @@ func DNormFill(
         return
     }
 
-    floats.Apply(math.Exp, z[0 : len(x) - 1])
+    Apply(z[0 : len(x) - 1], math.Exp, z[0 : len(x) - 1])
 }
 
 

@@ -53,7 +53,7 @@ func LogweightedSample(logw []float64, n int, idx []int) []int {
         w[i] = math.Exp(lw - max)
         sum += w[i]
     }
-    Scale(w, 1/sum)
+    Scale(w, 1/sum, w)
 
     return WeightedSample(w, n, idx)
 }
