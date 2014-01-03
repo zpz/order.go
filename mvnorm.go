@@ -72,7 +72,7 @@ func (mvn *Mvnorm) DensityFill(
     Scale(z, -0.5, z)
 
     if !return_log {
-        Apply(z, math.Exp, z)
+        Transform(z, math.Exp, z)
     }
 }
 

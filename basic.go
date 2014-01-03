@@ -231,3 +231,31 @@ func Standardize(x []float64) []float64 {
 
 
 
+
+// out can be a prepared output slice, or nil,
+// in which case an output slice is created.
+func Generate(n int, f func(int) float64, out []float64) []float64 {
+    if out == nil {
+        out = make([]float64, n)
+    }
+    for i := 0; i < n; i++ {
+        out[i] = f(i)
+    }
+    return out
+}
+
+
+
+
+// out can be a prepared output slice, or nil,
+// in which case an output slice is created.
+func Seq(from, to, step float64, out []float64) []float64 {
+    n := int((to - from) / step) + 1
+    return Generate(
+        n,
+        func (i int) float64 { return from + float64(i) * step },
+        out)
+}
+
+
+

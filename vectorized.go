@@ -108,7 +108,7 @@ func Divide(x, y []float64, out []float64) []float64 {
 
 // out can be x, or a prepared output slice, or nil,
 // in which case an output slice is created.
-func Apply(x []float64, f func(float64) float64, out []float64) []float64 {
+func Transform(x []float64, f func(float64) float64, out []float64) []float64 {
     if out == nil {
         out = make([]float64, len(x))
     }
@@ -117,5 +117,4 @@ func Apply(x []float64, f func(float64) float64, out []float64) []float64 {
     }
     return out
 }
-
 

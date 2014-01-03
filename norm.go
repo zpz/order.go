@@ -38,7 +38,7 @@ func DNormFill(
         return
     }
 
-    Apply(z[0 : len(x) - 1], math.Exp, z[0 : len(x) - 1])
+    Transform(z[0 : len(x) - 1], math.Exp, z[0 : len(x) - 1])
 }
 
 
