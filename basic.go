@@ -214,19 +214,26 @@ func Sd(x []float64) (float64, float64) {
 
 
 
-func Center(x []float64) []float64 {
-    return Shift(x, -Mean(x), x)
+// out can be x, a prepared output slice, or nil,
+// in which case an output slice is created.
+func Center(x []float64, out []float64) []float64 {
+    return Shift(x, -Mean(x), out)
 }
 
 
 
 
-func Standardize(x []float64) []float64 {
-    sd, mean := Sd(x)
-    for i := range x {
-        x[i] = (x[i] - mean) / sd
+// out can be x, a prepared output slice, or nil,
+// in which case an output slice is created.
+func Standardize(x []float64, out []float64) []float64 {
+    if out == nil {
+        out = make([]float64, len(x))
     }
-    return x
+    sd, mean := Sd(x)
+    for i, val := range x {
+        out[i] = (val - mean) / sd
+    }
+    return out
 }
 
 
@@ -257,5 +264,104 @@ func Seq(from, to, step float64, out []float64) []float64 {
         out)
 }
 
+
+
+
+func All(x []float64, f func(float64) bool) bool {
+    for _, val := range x {
+        if !f(val) {
+            return false
+        }
+    }
+    return true
+}
+
+
+
+
+func Any(x []float64, f func(float64) bool) bool {
+    for _, val := range x {
+        if f(val) {
+            return true
+        }
+    }
+    return false
+}
+
+
+
+
+func None(x []float64, f func(float64) bool) bool {
+    return !Any(x, f)
+}
+
+
+
+
+// Count returns the number of elements satisfying specific criterion.
+func Count(x []float64, f func(float64) bool) int {
+    n := 0
+    for _, val := range x {
+        if f(val) {
+            n++
+        }
+    }
+    return n
+}
+
+
+
+
+// Which returns the indices of elements satisfying specific criterion.
+func Which(x []float64, f func(float64) bool, out []int) []int {
+    if out == nil {
+        out = make([]int, 0, len(x))
+            // FIXME: this could be wasteful in memory
+            // if only a small number of elements pass the filter.
+    } else {
+        out = out[0:0]
+    }
+    for i, val := range x {
+        if f(val) {
+            out = append(out, i)
+        }
+    }
+    return out
+}
+
+
+
+
+// PickByIndex picks elements by indices.
+// out may be a prepared output slice or nil,
+// in which case an output slice is created.
+func PickByIndex(x []float64, idx []int, out []float64) []float64 {
+    if out == nil {
+        out = make([]float64, len(idx))
+    }
+    for i, j := range idx {
+        out[i] = x[j]
+    }
+    return out
+}
+
+
+
+
+func Filter(x []float64, f func(float64) bool, out []float64) []float64 {
+    if out == nil {
+        out = make([]float64, 0, len(x))
+            // FIXME: this could be wasteful in memory
+            // if only a small number of elements pass the filter.
+    } else {
+        out = out[0:0]
+    }
+    for _, val := range x {
+        if f(val) {
+            out = append(out, val)
+        }
+    }
+    return out
+}
 
 
