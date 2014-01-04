@@ -118,3 +118,16 @@ func Transform(x []float64, f func(float64) float64, out []float64) []float64 {
     return out
 }
 
+
+
+
+func Dot(x, y []float64) float64 {
+    res := 0.0
+    for i, v := range x {
+        res += v * y[i]
+    }
+    return res
+}
+
+
+

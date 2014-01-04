@@ -2,31 +2,90 @@ package stats
 
 import (
     "math"
-//    "github.com/skelterjohn/go.matrix"
-//    "github.com/gonum/floats"
-//    "fmt"
 )
 
-// We store the lower-triangular elements
-// of a covariance matrix in column-major order,
+
+
+
+
+// Lower-triangular elements
+// of a square matrix in column-major order,
 // including elements on the main diagonal.
-// For example, for a 3x3 cov matrix, we store these elements:
+// For example, for a 3x3 matrix, we store these elements:
 //
 //     0
 //     1  3
 //     2  4  5
 //
-// We call these elements a "cov slice".
-// The length of the cov slice for a k by k cov matrix is
+// The length of the LowerTri for a k by k matrix is
 // n = (k * k + k) / 2 = k * (k+1) / 2.
-//
-// Given a cov slice of length n, we can determine
-// the dimensionality of the cov matrix as
-// k = floor(sqrt(2 * n)).
+type LowerTri []float64
 
 
-// covslice_ndim returns the dimensionality
-// of the cov matrix given the length of the cov slice.
+
+func MakeLowerTri(k int) LowerTri {
+    return LowerTri(make([]float64, k * (k+1)/2))
+}
+
+
+
+// Dim returns the dimensionality (i.e., k)
+// of the matrix corresponding to a LowerTri.
+func (x LowerTri) Dim() int {
+    return int(math.Floor(math.Sqrt(float64(2 * len(x)))))
+}
+
+
+
+func (x LowerTri) At(i int) float64 {
+    return x[i]
+}
+
+
+
+func (x LowerTri) Set(i int, v float64) {
+    x[i] = v
+}
+
+
+
+// IJ2Idx returns the index of the element
+// in x that represents the element (row, col)
+// in the full matrix.
+func (x LowerTri) IJ2Idx(row, col int) int {
+    // Total number of elements up to, but not including,
+    // column j in the slice:
+    //        n + (n-1) +...+ (n-j+1)
+    //      = (n + n-j+1)/2 * (n - (n-j+1) + 1)
+    //      = j * (n + n - j + 1) / 2
+    //
+    // Check:
+    //   j = 0: --> 0
+    //   j = 1: --> n
+    //   j = 2: --> n + n - 1
+    //   j = 3: --> 3 * (n - 1) = n + (n-1) + (n-2)
+
+    if row < col {
+        row, col = col, row
+    }
+
+    ndim := x.Dim()
+    return col * (ndim + ndim - col + 1) / 2 + row - col
+}
+
+
+
+
+func (x LowerTri) Idx2IJ(idx int) (int, int) {
+    panic("to be implemented")
+    row, col := 0, 0
+    return row, col
+}
+
+
+
+
+
 func covslice_ndim(n int) int {
     return int(math.Floor(math.Sqrt(float64(2 * n))))
 }
@@ -63,35 +122,9 @@ func covslice_expand_fill(src, dst []float64) {
     }
 }
 
+
+
 /*
-
-// covslice_ij_idx returns the index of the element
-// in a cov slice that represents the element <row, col>
-// in the full cov matrix.
-func covslice_ij_idx(ndim, row, col int) int {
-    // Total number of elements up to, but not including,
-    // column j in the cov slice:
-    //        n + (n-1) +...+ (n-j+1)
-    //      = (n + n-j+1)/2 * (n - (n-j+1) + 1)
-    //      = j * (n + n - j + 1) / 2
-    //
-    // Check:
-    //   j = 0: --> 0
-    //   j = 1: --> n
-    //   j = 2: --> n + n - 1
-    //   j = 3: --> 3 * (n - 1) = n + (n-1) + (n-2)
-
-    if row < col {
-        row, col = col, row
-    }
-
-    return col * (ndim + ndim - col + 1) / 2 + row - col
-}
-
-
-
-
-
 // covslice_subset_xx_idx returns the indices of elements
 // in a cov slice that would create the cov slice for
 // the subset of dimensions specified in dims.
@@ -108,5 +141,4 @@ func covslice_subset_xx_idx(ndim int, dims []int) []int {
     }
     return idx
 }
-
 */

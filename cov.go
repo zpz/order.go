@@ -2,6 +2,7 @@ package stats
 
 import (
     "math"
+    "github.com/gonum/matrix/mat64"
 )
 
 
@@ -58,90 +59,182 @@ func Cor(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
 
 
 
+// Extract columns of a matrix, and center each column.
+func col_center(x mat64.Matrix, sd, out []float64) {
+    nrow, ncol := x.Dims()
+    for icol, k := 0, 0; icol < ncol; icol++ {
+        for irow := 0; irow < nrow; irow++ {
+            out[k] = x.At(irow, icol)
+            k++
+        }
+        if sd == nil {
+            Center(out[k-nrow : k], out[k-nrow : k])
+        } else {
+            s, m := Sd(out[k-nrow : k])
+            sd[icol] = s
+            Shift(out[k-nrow : k], -m, out[k-nrow : k])
+        }
+    }
+}
 
 
-// p is dimensionality;
-// n is number of points.
-func mean(x []float64, p, n int) []float64 {
-    assert(p * n == len(x), "length of input data is wrong")
 
-    v := make([]float64, p)
 
-    k := 0
-    for i := 0; i < n; i++ {
-        for j := 0; j < p; j++ {
-            v[j] = v[j] * float64(i) / float64(i + 1.0) +
-                    x[k] / float64(i + 1.0)
+// CovSlice returns the lower-triangular elements of the cov matrix
+// between the columns of x.
+func CovSlice(
+    x mat64.Matrix,
+    out LowerTri,
+    workspace []float64) LowerTri {
+
+    nrow, ncol := x.Dims()
+
+    if out == nil {
+        out = MakeLowerTri(ncol)
+    }
+
+    if workspace == nil {
+        workspace = make([]float64, nrow * ncol)
+    }
+
+    col_center(x, nil, workspace)
+
+    for icol, k := 0, 0; icol < ncol; icol++ {
+        for irow := icol; irow < nrow; irow++ {
+            out[k] = Dot(workspace[irow*nrow : (irow+1)*nrow],
+                        workspace[icol*nrow : (icol+1)*nrow]) /
+                        float64(nrow-1)
             k++
         }
     }
 
-    return v
+    return out
 }
 
 
 
-func centerize(x []float64, p, n int) {
-    x_mean := mean(x, p, n)
-    for i, j := 0, 0; i < n; i++ {
-        z := x[j : (j+p)]
-        Subtract(z, x_mean, z)
-        j += p
+
+
+// CorSlice returns the lower-triangular elements of the cor matrix
+// between the columns of x.
+func CorSlice(
+    x mat64.Matrix,
+    out LowerTri,
+    workspace []float64) LowerTri {
+
+    nrow, ncol := x.Dims()
+
+    if out == nil {
+        out = MakeLowerTri(ncol)
     }
-}
 
+    if workspace == nil {
+        workspace = make([]float64, nrow * ncol)
+    }
 
+    sd := make([]float64, ncol)
 
-// cov_xy returns elements of the cov matrix in column major.
-func cov_xy(x []float64, p_x int, y []float64, p_y int, n int) []float64 {
-    x_copy := append([]float64{}, x...)
-    centerize(x_copy, p_x, n)
-    y_copy := append([]float64{}, y...)
-    centerize(y_copy, p_y, n)
+    col_center(x, sd, workspace)
 
-    v := make([]float64, p_x * p_y)
-
-    i_v := 0
-    for i_y := 0; i_y < p_y; i_y++ {
-        for i_x := 0; i_x < p_x; i_x++ {
-            z := 0.0
-            for k := 0; k < n; k++ {
-                z += x_copy[k * p_x + i_x] * y_copy[k * p_y + i_y]
-            }
-            z /= float64(n - 1.0)
-            v[i_v] = z
-            i_v++
+    for icol, k := 0, 0; icol < ncol; icol++ {
+        for irow := icol; irow < nrow; irow++ {
+            out[k] = Dot(workspace[irow*nrow : (irow+1)*nrow],
+                        workspace[icol*nrow : (icol+1)*nrow]) /
+                        (float64(nrow-1) * sd[irow] * sd[icol])
+            k++
         }
     }
 
-    return v
+
+    return out
 }
 
 
 
-// cov_xx returns lower-triangular elements of the cov matrix,
-// including the diagonal elements, in column major.
-func cov_xx(x []float64, p, n int) []float64 {
-    x_copy := append([]float64{}, x...)
-    centerize(x_copy, p, n)
 
-    v := make([]float64, (p * p + p)/2)
-    i_v := 0
-    for j := 0; j < n; j++ {
-        for i := j; i < n; i++ {
-            // Covariance between dim i and j:
-            z := 0.0
-            for k := 0; k < n; k++ {
-                kk := k * p
-                z += x_copy[kk + i] * x_copy[kk + j]
-            }
-            z /= float64(n - 1.0)
-            v[i_v] = z
-            i_v++
+
+// CovMatrix returns the cov matrix between columns of x and columns of
+// y. Element (i, j) of the cov matrix is the covariance between
+// column i of x and column j of y.
+func CovMatrix(
+    x, y mat64.Matrix,
+    out *mat64.Dense,
+    workspace []float64) *mat64.Dense {
+
+    nrow_x, ncol_x := x.Dims()
+    nrow_y, ncol_y := y.Dims()
+
+    assert(nrow_x == nrow_y, "Number of rows of x and y mismatch")
+
+    if out == nil {
+        out, ok := mat64.NewDense(ncol_x, ncol_y, nil)
+        assert(ok == nil, "NewDense failed")
+    }
+
+    if workspace == nil {
+        workspace = make([]float64, nrow_x * ncol_x + nrow_y * ncol_y)
+    }
+    work_x := workspace[0 : nrow_x * ncol_x]
+    work_y := workspace[nrow_x * ncol_x : (nrow_x * ncol_x + nrow_y * ncol_y)]
+
+    col_center(x, nil, work_x)
+    col_center(y, nil, work_y)
+
+    for ix := 0; ix < ncol_x; ix++ {
+        for iy := 0; iy < ncol_y; iy++ {
+            out.Set(ix, iy,
+                Dot(work_x[ix*nrow_x : (ix+1)*nrow_x],
+                    work_y[iy*nrow_y : (iy+1)*nrow_y]) /
+                    float64(nrow_x - 1))
         }
     }
 
-    return v
+    return out
 }
 
+
+
+
+// CorMatrix returns the cor matrix between columns of x and columns of
+// y. Element (i, j) of the cor matrix is the correlation between
+// column i of x and column j of y.
+func CorMatrix(
+    x, y mat64.Matrix,
+    out *mat64.Dense,
+    workspace []float64) *mat64.Dense {
+
+    nrow_x, ncol_x := x.Dims()
+    nrow_y, ncol_y := y.Dims()
+
+    assert(nrow_x == nrow_y, "Number of rows of x and y mismatch")
+
+    if out == nil {
+        out, ok := mat64.NewDense(ncol_x, ncol_y, nil)
+        assert(ok == nil, "NewDense failed")
+    }
+
+    if workspace == nil {
+        workspace = make([]float64, nrow_x * ncol_x + nrow_y * ncol_y)
+    }
+    work_x := workspace[0 : nrow_x * ncol_x]
+    work_y := workspace[nrow_x * ncol_x : (nrow_x * ncol_x + nrow_y * ncol_y)]
+
+    sd := make([]float64, ncol_x + ncol_y)
+    sd_x := sd[ : ncol_x]
+    sd_y := sd[ncol_x : ]
+
+    col_center(x, sd_x, work_x)
+    col_center(y, sd_y, work_y)
+
+    for ix := 0; ix < ncol_x; ix++ {
+        for iy := 0; iy < ncol_y; iy++ {
+            out.Set(ix, iy,
+                Dot(work_x[ix*nrow_x : (ix+1)*nrow_x],
+                    work_y[iy*nrow_y : (iy+1)*nrow_y]) /
+                    (float64(nrow_x - 1) * sd_x[ix] * sd_y[iy]))
+        }
+    }
+
+    return out
+}
 
