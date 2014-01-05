@@ -1,55 +1,56 @@
 package stats 
 
 import (
-    "github.com/skelterjohn/go.matrix"
+    "github.com/gonum/matrix/mat64"
 )
 
 
 // Mahalanobis computes squared Mahalanobis distance
-// between each row of X and the vector y, with covariance matrix Sigma.
-func mahalanobis(
-    x []float64,
-        // One observation after another.
+// between each row of x and the vector y, with covariance matrix sigma.
+func Mahalanobis(
+    x *mat64.Dense,
     y []float64,
-    Sigma *matrix.DenseMatrix) []float64 {
+    sigma *mat64.Dense,
+    out []float64) []float64 {
 
-    z := make([]float64, len(x) / len(y))
-    mahalanobis_fill(x, y, Sigma, z)
-    return z
-}
+    n, p := x.Dims()
+    assert(p == len(y),
+        "Dimensionalities of 'x' and 'y' mismatch")
+    r, c := sigma.Dims()
+    assert(r == p && c == p,
+        "Dimensionalities of input data and sigma mismatch")
 
+    out = use_slice(out, n)
 
-
-func mahalanobis_fill(
-    x []float64,
-        // One observation after another.
-    y []float64,
-    Sigma *matrix.DenseMatrix,
-    z []float64) {
-
-    X := matrix.MakeDenseMatrix(x, len(x) / len(y), len(y))
-        // This does not copy x.
-
-    Xt := X.Transpose()
-        // This does allocate new space.
-
-    for row := 0; row < Xt.Rows(); row++ {
-        for col := 0; col < Xt.Cols(); col++ {
-            Xt.Set(row, col, Xt.Get(row, col) - y[row])
+    // Diff matrix between x and y.
+    xt, _ := mat64.NewDense(p, n, nil)
+    for row := 0; row < p; row++ {
+        for col := 0; col < n; col++ {
+            xt.Set(row, col, x.At(col, row) - y[row])
         }
     }
 
-    yy, err := Sigma.Solve(Xt)
-    assert(err == nil, "mahalanobis: solver failed")
-    yy.ScaleMatrixDense(Xt)
+    yy := mat64.Solve(sigma, xt)
+
+    // TODO: an 'element-wise multiplication' function
+    // would be better; or if mat64.Dense has a 'RowView',
+    // we can use Multiply row by row.
+    for row := 0; row < p; row++ {
+        for col := 0; col < n; col++ {
+            yy.Set(row, col, yy.At(row, col) * xt.At(row, col))
+        }
+    }
+
 
     // Col sums of yy.
-    for j := 0; j < yy.Cols(); j++ {
-        z[j] = 0.
-        for i := 0; i < yy.Rows(); i++ {
-            z[j] += yy.Get(i, j)
+    for col := 0; col < n; col++ {
+        out[col] = 0
+        for row := 0; row < p; row++ {
+            out[col] += yy.At(row, col)
         }
     }
+
+    return out
 }
 
 

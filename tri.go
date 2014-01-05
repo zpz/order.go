@@ -1,9 +1,8 @@
 package stats
 
 import (
-    "math"
+    "github.com/gonum/matrix/mat64"
 )
-
 
 
 
@@ -19,40 +18,55 @@ import (
 //
 // The length of the LowerTri for a k by k matrix is
 // n = (k * k + k) / 2 = k * (k+1) / 2.
-type LowerTri []float64
-
-
-
-func MakeLowerTri(k int) LowerTri {
-    return LowerTri(make([]float64, k * (k+1)/2))
+type LowerTri struct {
+    ndim int
+    data []float64
 }
 
 
 
-// Dim returns the dimensionality (i.e., k)
+
+func NewLowerTri(k int, data []float64) *LowerTri {
+    if data != nil {
+        return &LowerTri{
+            ndim: k,
+            data: data[: k*(k+1)/2] }
+    }
+    return &LowerTri{
+        ndim: k,
+        data: make([]float64, k * (k+1)/2) }
+}
+
+
+
+
+// Dim returns the dimensionality
 // of the matrix corresponding to a LowerTri.
-func (x LowerTri) Dim() int {
-    return int(math.Floor(math.Sqrt(float64(2 * len(x)))))
+func (x *LowerTri) Dim() int {
+    return x.ndim
 }
 
 
 
-func (x LowerTri) At(i int) float64 {
-    return x[i]
+
+func (x *LowerTri) At(row, col int) float64 {
+    return x.data[x.ij2idx(row, col)]
 }
 
 
 
-func (x LowerTri) Set(i int, v float64) {
-    x[i] = v
+
+func (x *LowerTri) Set(row, col int, v float64) {
+    x.data[x.ij2idx(row, col)] = v
 }
+
 
 
 
 // IJ2Idx returns the index of the element
 // in x that represents the element (row, col)
 // in the full matrix.
-func (x LowerTri) IJ2Idx(row, col int) int {
+func (x *LowerTri) ij2idx(row, col int) int {
     // Total number of elements up to, but not including,
     // column j in the slice:
     //        n + (n-1) +...+ (n-j+1)
@@ -69,14 +83,13 @@ func (x LowerTri) IJ2Idx(row, col int) int {
         row, col = col, row
     }
 
-    ndim := x.Dim()
-    return col * (ndim + ndim - col + 1) / 2 + row - col
+    return col * (x.ndim + x.ndim - col + 1) / 2 + row - col
 }
 
 
 
 
-func (x LowerTri) Idx2IJ(idx int) (int, int) {
+func (x *LowerTri) idx2ij(idx int) (int, int) {
     panic("to be implemented")
     row, col := 0, 0
     return row, col
@@ -85,10 +98,12 @@ func (x LowerTri) Idx2IJ(idx int) (int, int) {
 
 
 
-
-func covslice_ndim(n int) int {
-    return int(math.Floor(math.Sqrt(float64(2 * n))))
+func (x *LowerTri) CopySlice(out []float64) []float64 {
+    out = use_slice(out, len(x.data))
+    copy(out, x.data)
+    return out
 }
+
 
 
 
@@ -96,30 +111,19 @@ func covslice_ndim(n int) int {
 // The resultant slice contains elements of the cov matrix
 // in either row major or column major, b/c the matrix is symmetric,
 // and its row-major and col-major listing of elements are the same.
-func covslice_expand(src []float64) []float64 {
-    ndim := covslice_ndim(len(src))
-    dst := make([]float64, ndim * ndim)
-    covslice_expand_fill(src, dst)
-    return dst
-}
+func (x *LowerTri) Expand(out *mat64.Dense) *mat64.Dense {
+    out = use_matrix(out, x.ndim, x.ndim)
 
-
-
-
-func covslice_expand_fill(src, dst []float64) {
-    ndim := covslice_ndim(len(src))
-    k := 0
-    for col := 0; col < ndim; col++ {
-        dst[col * ndim + col] = src[k]
-            // Element (col, col).
-        k++
-        for row := col + 1; row < ndim; row++ {
-            dst[row * ndim + col] = src[k]
-            dst[col * ndim + row] = src[k]
-                // Elements (row, col) and (col, row).
-            k++
+    for row := 0; row < x.ndim; row++ {
+        for col := 0; col < x.ndim; col++ {
+            out.Set(row, col, x.At(row, col))
         }
     }
+        // FIXME: some speedup may be possible if we
+        // use the fact that x.data is col major and out is row major,
+        // and do some slice copying.
+
+    return out
 }
 
 

@@ -42,13 +42,11 @@ func order(
         sort.Sort(data)
     }
 
-    if idx == nil {
-        idx = make([]int, n)
-    }
+    idx = use_int_slice(idx, n)
 	for i := 0; i < n; i++ {
 		idx[i] = data.GetIndex(i)
 	}
-    return idx[0:n]
+    return idx
 }
 
 

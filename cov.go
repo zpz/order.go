@@ -8,7 +8,7 @@ import (
 
 
 
-func Cov(x, y Numeric) float64 {
+func Cov_(x, y Numeric) float64 {
     n := x.Len()
     assert(y.Len() == n, "lengths of x and y differ")
 
@@ -30,8 +30,14 @@ func Cov(x, y Numeric) float64 {
 
 
 
+func Cov(x, y []float64) float64 {
+    return Cov_(Float64Slice(x), Float64Slice(y))
+}
 
-func Cor(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
+
+
+
+func Cor_(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
     n := x.Len()
     assert(y.Len() == n, "lengths of x and y differ")
 
@@ -54,6 +60,12 @@ func Cor(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
     cor = cov / (sd_x * sd_y)
 
     return cor, cov, sd_x, sd_y
+}
+
+
+
+func Cor(x, y []float64) (cor, cov, sd_x, sd_y float64) {
+    return Cor_(Float64Slice(x), Float64Slice(y))
 }
 
 
@@ -84,27 +96,28 @@ func col_center(x mat64.Matrix, sd, out []float64) {
 // between the columns of x.
 func CovSlice(
     x mat64.Matrix,
-    out LowerTri,
-    workspace []float64) LowerTri {
+    out *LowerTri,
+    workspace []float64) *LowerTri {
 
     nrow, ncol := x.Dims()
 
     if out == nil {
-        out = MakeLowerTri(ncol)
+        out = NewLowerTri(ncol, nil)
+    } else {
+        assert(out.Dim() == ncol,
+            "Provided 'out' is of wrong dimensionality")
     }
 
-    if workspace == nil {
-        workspace = make([]float64, nrow * ncol)
-    }
+    workspace = use_slice(workspace, nrow * ncol)
 
     col_center(x, nil, workspace)
 
-    for icol, k := 0, 0; icol < ncol; icol++ {
+    for icol := 0; icol < ncol; icol++ {
         for irow := icol; irow < nrow; irow++ {
-            out[k] = Dot(workspace[irow*nrow : (irow+1)*nrow],
+            out.Set(irow, icol,
+                Dot(workspace[irow*nrow : (irow+1)*nrow],
                         workspace[icol*nrow : (icol+1)*nrow]) /
-                        float64(nrow-1)
-            k++
+                        float64(nrow-1))
         }
     }
 
@@ -119,29 +132,30 @@ func CovSlice(
 // between the columns of x.
 func CorSlice(
     x mat64.Matrix,
-    out LowerTri,
-    workspace []float64) LowerTri {
+    out *LowerTri,
+    workspace []float64) *LowerTri {
 
     nrow, ncol := x.Dims()
 
     if out == nil {
-        out = MakeLowerTri(ncol)
+        out = NewLowerTri(ncol, nil)
+    } else {
+        assert(out.Dim() == ncol,
+            "Provided 'out' is of wrong dimensionality")
     }
 
-    if workspace == nil {
-        workspace = make([]float64, nrow * ncol)
-    }
+    workspace = use_slice(workspace, nrow * ncol)
 
     sd := make([]float64, ncol)
 
     col_center(x, sd, workspace)
 
-    for icol, k := 0, 0; icol < ncol; icol++ {
+    for icol := 0; icol < ncol; icol++ {
         for irow := icol; irow < nrow; irow++ {
-            out[k] = Dot(workspace[irow*nrow : (irow+1)*nrow],
+            out.Set(irow, icol,
+                Dot(workspace[irow*nrow : (irow+1)*nrow],
                         workspace[icol*nrow : (icol+1)*nrow]) /
-                        (float64(nrow-1) * sd[irow] * sd[icol])
-            k++
+                        (float64(nrow-1) * sd[irow] * sd[icol]))
         }
     }
 
@@ -166,14 +180,9 @@ func CovMatrix(
 
     assert(nrow_x == nrow_y, "Number of rows of x and y mismatch")
 
-    if out == nil {
-        out, ok := mat64.NewDense(ncol_x, ncol_y, nil)
-        assert(ok == nil, "NewDense failed")
-    }
+    out = use_matrix(out, ncol_x, ncol_y)
 
-    if workspace == nil {
-        workspace = make([]float64, nrow_x * ncol_x + nrow_y * ncol_y)
-    }
+    workspace = use_slice(workspace, nrow_x * ncol_x + nrow_y * ncol_y)
     work_x := workspace[0 : nrow_x * ncol_x]
     work_y := workspace[nrow_x * ncol_x : (nrow_x * ncol_x + nrow_y * ncol_y)]
 
@@ -208,14 +217,9 @@ func CorMatrix(
 
     assert(nrow_x == nrow_y, "Number of rows of x and y mismatch")
 
-    if out == nil {
-        out, ok := mat64.NewDense(ncol_x, ncol_y, nil)
-        assert(ok == nil, "NewDense failed")
-    }
+    out = use_matrix(out, ncol_x, ncol_y)
 
-    if workspace == nil {
-        workspace = make([]float64, nrow_x * ncol_x + nrow_y * ncol_y)
-    }
+    workspace = use_slice(workspace, nrow_x * ncol_x + nrow_y * ncol_y)
     work_x := workspace[0 : nrow_x * ncol_x]
     work_y := workspace[nrow_x * ncol_x : (nrow_x * ncol_x + nrow_y * ncol_y)]
 

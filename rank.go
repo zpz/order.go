@@ -13,12 +13,11 @@ func rank(data OrderInterface, r []int, stable bool) []int {
         Order_(data, idx)
     }
 
-    if r == nil {
-        r = make([]int, n)
-    }
+    r = use_int_slice(r, n)
+
     order_to_rank(idx, r)
 
-    return r[0:n]
+    return r
 }
 
 

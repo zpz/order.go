@@ -9,13 +9,11 @@ import (
 
 
 func Sample(n, k int, idx []int) []int {
-    if idx == nil {
-        idx = make([]int, k)
-    }
+    idx = use_int_slice(idx, k)
     for i := 0; i < k; i++ {
         idx[i] = rand.Intn(n)
     }
-    return idx[0:k]
+    return idx
 }
 
 
@@ -26,15 +24,13 @@ func Sample(n, k int, idx []int) []int {
 // w assigned to the members of the set. The weights in w must sum to 1;
 // this is assumed and not checked.
 func WeightedSample(w []float64, n int, idx []int) []int {
-    if idx == nil {
-        idx = make([]int, n)
-    }
+    idx = use_int_slice(idx, n)
     for i := 0; i < n; i++ {
         idx[i] = int(dst.ChoiceNext(w))
     }
         // FIXME: there might be room for improvement,
         // in a way that generates all n numbers in a batch.
-    return idx[0:n]
+    return idx
 }
 
 
