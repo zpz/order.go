@@ -35,9 +35,7 @@ func use_int_slice(in []int, n int) []int {
 
 func use_matrix(in *mat64.Dense, rows, cols int) *mat64.Dense {
     if in == nil {
-        out, ok := mat64.NewDense(rows, cols, nil)
-        assert(ok == nil, "mat64.NewDense failed")
-        return out
+        return mat64.NewDense(rows, cols, nil)
     }
     r, c := in.Dims()
     assert(r == rows && c == cols, "Provided matrix has wrong shape")

@@ -23,7 +23,7 @@ func Mahalanobis(
     out = use_slice(out, n)
 
     // Diff matrix between x and y.
-    xt, _ := mat64.NewDense(p, n, nil)
+    xt := mat64.NewDense(p, n, nil)
     for row := 0; row < p; row++ {
         for col := 0; col < n; col++ {
             xt.Set(row, col, x.At(col, row) - y[row])

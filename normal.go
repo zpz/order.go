@@ -137,7 +137,7 @@ func (mvn *Mvnormal) Random(
     p := len(mvn.mean)
 
     norm := NewNormal(0.0, 1.0)
-    z, _ := mat64.NewDense(n, p, norm.Random(p*n, &RNG{}, nil))
+    z := mat64.NewDense(n, p, norm.Random(p*n, &RNG{}, nil))
 
     out.Mul(z, U)
 
