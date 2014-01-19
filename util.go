@@ -1,45 +1,34 @@
 package stats
 
 import (
-    "github.com/gonum/matrix/mat64"
+	"github.com/zpz/matrix.go/dense"
 )
 
-
 func assert(test bool, msg string) {
-    if !test {
-        panic(msg)
-    }
+	if !test {
+		panic(msg)
+	}
 }
-
-
 
 func use_slice(in []float64, n int) []float64 {
-    if in == nil {
-        return make([]float64, n)
-    }
-    return in[:n]
+	if in == nil {
+		return make([]float64, n)
+	}
+	return in[:n]
 }
-
-
-
 
 func use_int_slice(in []int, n int) []int {
-    if in == nil {
-        return make([]int, n)
-    }
-    return in[:n]
+	if in == nil {
+		return make([]int, n)
+	}
+	return in[:n]
 }
 
-
-
-
-func use_matrix(in *mat64.Dense, rows, cols int) *mat64.Dense {
-    if in == nil {
-        return mat64.NewDense(rows, cols, nil)
-    }
-    r, c := in.Dims()
-    assert(r == rows && c == cols, "Provided matrix has wrong shape")
-    return in
+func use_matrix(in *dense.Dense, rows, cols int) *dense.Dense {
+	if in == nil {
+		return dense.NewDense(rows, cols)
+	}
+	r, c := in.Dims()
+	assert(r == rows && c == cols, "Provided matrix has wrong shape")
+	return in
 }
-
-
