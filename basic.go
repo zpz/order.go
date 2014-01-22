@@ -150,3 +150,17 @@ func Sd_(x Numeric) (float64, float64) {
 func Sd(x []float64) (float64, float64) {
 	return Sd_(Float64Slice(x))
 }
+
+// LogSumExp computes the log of the sum of the exponentials of the
+// values in x, in a numerically stable way.
+func LogSumExp(x []float64) float64 {
+	maxval, _ := Max(x)
+	if math.IsInf(maxval, 0) {
+		return maxval
+	}
+	var lse float64
+	for _, val := range x {
+		lse += math.Exp(val - maxval)
+	}
+	return math.Log(lse) + maxval
+}

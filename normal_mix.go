@@ -1,8 +1,6 @@
 package stats
 
 import (
-	"fmt"
-	"github.com/gonum/floats"
 	"github.com/pmylund/sortutil"
 	"github.com/zpz/matrix.go/dense"
 	"log"
@@ -150,7 +148,6 @@ func (mix *Normix) CovScaleSlice() []float64 {
     return mix.cov_scale
 }
 
-*/
 
 // Not complete. Just output some info for now.
 func (mix *Normix) String() string {
@@ -163,6 +160,7 @@ func (mix *Normix) String() string {
 		ndim, nmix)
 	return s
 }
+*/
 
 // Pooled mean and variance of a random vector represented by a
 // mixture---
@@ -236,28 +234,26 @@ summary.normmix <- function(object, ...)
 }
 */
 
-// Density computes the pdf of x in the Normix mix.
-// Each row of x is an 'observation'.
-// Return density for each observation.
+// Density computes the pdf of each row of x in the Normix mix.
 func (mix *Normix) Density(x *dense.Dense, out []float64) []float64 {
-	ndim := mix.NDim()
+	ndim := mix.Dim()
 	assert(x.Cols() == ndim, "Wrong shape for input x")
 
 	nx := x.Rows()
 
 	zz := mix.density_stats(x, nil)
 
-	nmix := mix.NMix()
+	nmix := mix.Size()
 
 	if nmix == 1 {
-		copy(out, zz)
+		out = zz.GetData(out)
 	} else {
+		for imix := 0; imix < nmix; imix++ {
+			Shift(zz.RowView(imix), mix.logweight[imix], zz.RowView(imix))
+		}
 		lw := make([]float64, nmix)
 		for ix := 0; ix < nx; ix++ {
-			for imix := 0; imix < nmix; imix++ {
-				lw[imix] = zz[imix*nx+ix] + mix.logweight[imix]
-			}
-			out[ix] = floats.LogSumExp(lw)
+			out[ix] = LogSumExp(zz.GetCol(ix, lw))
 		}
 	}
 
@@ -268,34 +264,36 @@ func (mix *Normix) Density(x *dense.Dense, out []float64) []float64 {
 // distribution and returns the sample in a slice,
 // one case after another.
 func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
-	ndim := mix.NDim()
+	ndim := mix.Dim()
 	out = use_matrix(out, n, ndim)
 
 	mixidx := LogweightedSample(mix.logweight, n, nil)
 	sort.Ints(mixidx)
 
+	cov_mat := dense.NewDense(ndim, ndim)
+
 	switch mix.kind {
 	case UniCovMix:
 		mvn := NewMvnormal(make([]float64, ndim),
-			NewLowerTri(ndim, mix.cov).Expand(nil))
+			symm_fill(mix.cov.RowView(0), cov_mat))
 
 		mvn.Random(n, &RNG{}, out)
 
 		for i, idx := range mixidx {
 			z := out.RowView(i)
-			Add(z, mix.MeanSlice(idx), z)
+			Add(z, mix.mean.RowView(idx), z)
 		}
 
 	case ScaledCovMix:
 		mvn := NewMvnormal(make([]float64, ndim),
-			NewLowerTri(ndim, mix.cov).Expand(nil))
+			symm_fill(mix.cov.RowView(0), cov_mat))
 
 		mvn.Random(n, &RNG{}, out)
 
 		for i, idx := range mixidx {
 			z := out.RowView(i)
 			Scale(z, math.Sqrt(mix.cov_scale[idx]), z)
-			Add(z, mix.MeanSlice(idx), z)
+			Add(z, mix.mean.RowView(idx), z)
 		}
 
 	case FreeCovMix:
@@ -314,13 +312,11 @@ func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
 			// component generates, so that these samples
 			// are generated at once.
 
-			mvn := NewMvnormal(mix.MeanSlice(imix),
-				NewLowerTri(ndim, mix.CovSlice(imix)).Expand(nil))
+			mvn := NewMvnormal(mix.mean.RowView(imix),
+				symm_fill(mix.cov.RowView(imix), cov_mat))
 			z := out.SubmatrixView(iz-nmix, 0, nmix, ndim)
 			mvn.Random(nmix, &RNG{}, z)
 		}
-	default:
-		panic(fmt.Errorf("unrecognized kind for Normix"))
 	}
 
 	return out
@@ -330,7 +326,7 @@ func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
 // of the dimensions specified by dims.
 func (mix *Normix) Marginal(dims []int) *Normix {
 	ndim := len(dims)
-	nmix := mix.NMix()
+	nmix := mix.Size()
 	kind := mix.kind
 
 	z := NewNormix(ndim, nmix, kind)
@@ -338,18 +334,17 @@ func (mix *Normix) Marginal(dims []int) *Normix {
 	copy(z.logweight, mix.logweight)
 
 	for imix := 0; imix < nmix; imix++ {
-		pick_float64s_fill(mix.MeanSlice(imix), dims, z.MeanSlice(imix))
+		pick_float64s(mix.mean.RowView(imix), dims, z.mean.RowView(imix))
 	}
 
-	covidx := covslice_subset_xx_idx(mix.NDim(), dims)
+	covidx := covslice_subset_xx_idx(mix.Dim(), dims)
 
 	if kind == FreeCovMix {
 		for imix := 0; imix < nmix; imix++ {
-			pick_float64s_fill(
-				mix.CovSlice(imix), covidx, z.CovSlice(imix))
+			pick_float64s(mix.cov.RowView(imix), covidx, z.cov.RowView(imix))
 		}
 	} else {
-		pick_float64s_fill(mix.cov, covidx, z.cov)
+		pick_float64s(mix.cov.RowView(0), covidx, z.cov.RowView(0))
 		if kind == ScaledCovMix {
 			copy(z.cov_scale, mix.cov_scale)
 		}
@@ -380,17 +375,16 @@ func (mix *Normix) Conditional(
 
 	marginal_pdf := mix.Marginal(dims)
 	loglikely := marginal_pdf.density_stats(
-		(&dense.Dense{}).LoadData(data, 1, len(dims)), nil)
+		dense.DenseView(data, 1, len(dims)), nil)
 
 	//========================================
 	// Update weight of each mixture component
 	// to take into account the likelihoods.
 
-	logwt := append([]float64{}, loglikely...)
-	floats.Add(logwt, mix.logweight)
-	logintlikely := floats.LogSumExp(logwt)
+	logwt := Add(loglikely, mix.logweight, nil)
+	logintlikely := LogSumExp(logwt)
 	// Log integrated likelihood.
-	floats.AddConst(-logintlikely, logwt)
+	Shift(logwt, -logintlikely, logwt)
 	// Normalized; now sum(exp(logwt)) = 1.
 
 	// Screen the mixture components and discard those
@@ -402,15 +396,15 @@ func (mix *Normix) Conditional(
 		idx_keep := lose_weight(logwt, 1-wt_tol)
 
 		if len(idx_keep) < len(logwt) {
-			logwt = pick_float64s(logwt, idx_keep)
-			total_wt := math.Exp(floats.LogSumExp(logwt))
+			logwt = pick_float64s(logwt, idx_keep, nil)
+			total_wt := math.Exp(LogSumExp(logwt))
 
 			log.Println("keeping",
-				len(idx_keep), "of", mix.NMix(),
+				len(idx_keep), "of", mix.Size(),
 				"components for a total weight of",
 				total_wt)
 
-			floats.AddConst(-floats.LogSumExp(logwt), logwt)
+			Shift(logwt, -LogSumExp(logwt), logwt)
 			// Normalize so that weights sum to 1.
 		}
 	} else {
@@ -427,8 +421,8 @@ func (mix *Normix) Conditional(
 	dims_y := dims
 	// 'y' indicates the conditioning dimensions and data.
 
-	n_x := mix.NDim() - n_y
-	dims_x := exclude(mix.NDim(), dims_y)
+	n_x := mix.Dim() - n_y
+	dims_x := exclude(mix.Dim(), dims_y)
 	// 'x' indicates the conditioned, i.e. target,
 	// dimensions.
 
@@ -472,14 +466,14 @@ func (mix *Normix) Conditional(
 
 	if mix.kind == FreeCovMix {
 		for idx_new, idx_old := range idx_keep {
-			pick_float64s_fill(mix.CovSlice(idx_old),
+			pick_float64s(mix.cov.RowView(idx_old),
 				sigma_y_covslice_idx, sigma_y_covslice.data)
 			sigma_y_covslice.Expand(sigma_y_slice)
-			sigma_y := (&dense.Dense{}).LoadData(sigma_y_slice, n_y, n_y)
+			sigma_y := dense.DenseView(sigma_y_slice, n_y, n_y)
 
-			pick_float64s_fill(mix.CovSlice(idx_old),
+			pick_float64s(mix.cov.RowView(idx_old),
 				sigma_yx_slice_idx, sigma_yx_slice)
-			sigma_yx := (&dense.Dense{}).LoadData(sigma_yx_slice, n_y, n_x)
+			sigma_yx := dense.DenseView(sigma_yx_slice, n_y, n_x)
 
 			A := dense.Solve(sigma_y, sigma_yx)
 			// FIXME: make use of Cholesky.
@@ -487,8 +481,8 @@ func (mix *Normix) Conditional(
 			// Get conditional cov slice.
 			//
 			cov_x := mix_x.CovSlice(idx_new)
-			pick_float64s_fill(mix.CovSlice(idx_old), sigma_x_covslice_idx, cov_x)
-			var syxt *dense.Dense
+			pick_float64s(mix.cov.RowView(idx_old), sigma_x_covslice_idx, cov_x)
+			syxt := dense.T(sigma_yx)
 			syxt.TCopy(sigma_yx)
 			sigma_x.Mul(syxt, A)
 			for k, col := 0, 0; col < n_x; col++ {
@@ -499,11 +493,11 @@ func (mix *Normix) Conditional(
 			}
 
 			// Get conditional mean.
-			mu_old := mix.MeanSlice(idx_old)
+			mu_old := mix.mean.RowView(idx_old)
 			for i, idx := range dims_y {
 				y_delta[i] = data[i] - mu_old[idx]
 			}
-			mu_x := mix_x.MeanSlice(idx_new)
+			mu_x := mix_x.mean.RowView(idx_new)
 			for i, idx := range dims_x {
 				mu_x[i] = mu_old[idx] + Dot(y_delta, A.RowView(i))
 			}
@@ -514,21 +508,19 @@ func (mix *Normix) Conditional(
 			copy(mix_x.cov_scale, mix.cov_scale)
 		}
 
-		pick_float64s_fill(mix.cov,
-			sigma_y_covslice_idx, sigma_y_covslice)
+		pick_float64s(mix.cov, sigma_y_covslice_idx, sigma_y_covslice)
 		sigma_y_covslice.Expand(sigma_y_slice)
 		sigma_y := (&dense.Dense{}).LoadData(sigma_y_slice, n_y, n_y)
 
-		pick_float64s_fill(mix.cov,
-			sigma_yx_slice_idx, sigma_yx_slice)
-		sigma_yx := (&dense.Dense{}).LoadData(sigma_yx_slice, n_y, n_x)
+		pick_float64s(mix.cov, sigma_yx_slice_idx, sigma_yx_slice)
+		sigma_yx := dense.DenseView(sigma_yx_slice, n_y, n_x)
 
 		A := dense.Solve(sigma_y, sigma_yx)
 		// FIXME: make use of Cholesky.
 
 		// Get conditional cov slice.
 		//
-		pick_float64s_fill(mix.cov, sigma_x_covslice_idx, mix_x.cov)
+		pick_float64s(mix.cov, sigma_x_covslice_idx, mix_x.cov)
 		var syxt *dense.Dense
 		syxt.TCopy(sigma_yx)
 		sigma_x.Mul(syxt, A)
@@ -555,65 +547,92 @@ func (mix *Normix) Conditional(
 	return mix_x
 }
 
-// Compute the log-density of the data in each mixture component.
+// density_stats computes the log-density of the data in each mixture component.
 // Input x contains one 'observation' or 'case' per row.
-// Return a slice containing the log-densities of all the cases
-// in the first mixture component, then the log-densities of all the
-// cases in the second mixture component, and so on.
-func (mix *Normix) density_stats(x *dense.Dense, out []float64) []float64 {
-	nx, ndim := x.Dims()
-	nmix := mix.NMix()
+// Upon return, row i of out contains log-densities of every row of x
+// in the i-th mixture component of mix.
+func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense {
+	ndim, nmix := mix.Dim(), mix.Size()
+	nx := x.Rows()
 
-	assert(mix.NDim() == ndim, "input x has wrong shape")
-	out = use_slice(out, nx*nmix)
+	assert(x.Cols() == ndim, "input x has wrong shape")
+	out = use_matrix(out, nmix, nx)
 
 	if ndim == 1 {
-		xx := make([]float64, x.Size())
-		for i := 0; i < nx; i++ {
-			xx[i] = x.At(i, 0)
-		}
-		if mix.kind == UniCovMix {
-			sd := math.Sqrt(mix.cov[0])
-			for imix := 0; imix < nmix; imix++ {
-				NewNormal(mix.mean[imix], sd).Density(xx, out[nx*imix:])
-			}
+		var xx []float64
+		if x.Contiguous() {
+			xx = x.DataView()
 		} else {
+			xx = x.GetData(nil)
+		}
+		switch mix.kind {
+		case UniCovMix:
+			sd := math.Sqrt(mix.cov.Get(0, 0))
 			for imix := 0; imix < nmix; imix++ {
-				NewNormal(mix.mean[imix], math.Sqrt(mix.cov[imix])).Density(
-					xx, out[nx*imix:])
+				NewNormal(mix.mean.Get(imix, 0), sd).
+					Density(xx, out.RowView(imix))
+			}
+		case ScaledCovMix:
+			v := mix.cov.Get(0, 0)
+			for imix := 0; imix < nmix; imix++ {
+				NewNormal(mix.mean.Get(imix, 0),
+					math.Sqrt(v*mix.cov_scale[imix])).
+					Density(xx, out.RowView(imix))
+			}
+		case FreeCovMix:
+			for imix := 0; imix < nmix; imix++ {
+				NewNormal(mix.mean.Get(imix, 0),
+					math.Sqrt(mix.cov.Get(imix, 0))).
+					Density(xx, out.RowView(imix))
 			}
 		}
 		return out
 	}
 
-	switch mix.kind {
-	case FreeCovMix:
-		for imix := 0; imix < nmix; imix++ {
-			mvn := NewMvnormal(mix.MeanSlice(imix),
-				NewLowerTri(ndim, mix.CovSlice(imix)).Expand(nil))
-			mvn.Density(x, out[nx*imix:])
-		}
-	case UniCovMix:
-		xx := dense.NewDense(nx, ndim)
+	cov_mat := dense.NewDense(ndim, ndim)
 
+	if mix.kind == FreeCovMix {
+		for imix := 0; imix < nmix; imix++ {
+			mvn := NewMvnormal(mix.mean.RowView(imix),
+				symm_fill(mix.cov.RowView(imix), cov_mat))
+			mvn.Density(x, out.RowView(imix))
+		}
+	} else {
+		// Create a mvn with zero mean.
 		mvn := NewMvnormal(make([]float64, ndim),
-			NewLowerTri(ndim, mix.cov).Expand(nil))
+			symm_fill(mix.cov.Rowview(0), cov_mat))
 
+		// Subtract mean from all data so that their densities
+		// are computed using the zero-mean distribution above.
+		xx := dense.NewDense(nx*nmix, ndim)
 		for imix := 0; imix < nmix; imix++ {
-			xx.Copy(x)
+			xxview := xx.SubmatrixView(imix*nx, 0, nx, ndim)
+			dense.Copy(xxview, x)
 			for row := 0; row < nx; row++ {
-				z := xx.RowView(row)
-				Subtract(z, mix.MeanSlice(imix), z)
+				Subtract(xxview.RowView(row), mix.mean.RowView(imix),
+					xxview.RowView(row))
 			}
-
-			mvn.Density(xx, out[nx*imix:])
 		}
 
-	case ScaledCovMix:
-		panic(fmt.Errorf("not implemented"))
-		// FIXME: to be done
-	default:
-		panic(fmt.Errorf("unrecognized kind of Normix"))
+		if mix.kind == UniCovMix {
+			if out.Contiguous() {
+				mvn.Density(xx, out.DataView())
+			} else {
+				out.SetData(mvn.Density(xx, nil))
+			}
+		} else { // ScaledCovMix
+			symm_fill(mix.cov.RowView(0), cov_mat)
+			dist := Mahalanobis(xx, make([]float64, ndim), cov_mat, nil)
+			cov_det := cov_mat.Det()
+			for imix := 0; imix < nmix; imix++ {
+				res := out.RowView(imix)
+				cov_scale := mix.cov_scale[imix]
+				coef := 1.0 / math.Sqrt(math.Pow(2*math.Pi*cov_scale)*cov_det)
+				Scale(dist[imix*nx:(imix+1)*nx], -0.5/cov_scale, res)
+				Transform(res, math.Exp, res)
+				Scale(res, coef, res)
+			}
+		}
 	}
 
 	return out
@@ -665,7 +684,7 @@ func lose_weight(
 	logwt := append([]float64{}, logweight...)
 
 	// Normalize, such that sum(exp(logwt)) == 1.
-	floats.AddConst(-floats.LogSumExp(logwt), logwt)
+	Shift(logwt, -LogSumExp(logwt), logwt)
 
 	// Get indices listing the weights in descending order.
 	idx_ordered := Order(logwt, nil)
@@ -730,16 +749,12 @@ func exclude(n int, index []int) []int {
 
 // pick_float64s returns a subslice with the elements
 // at the specified indices.
-func pick_float64s(x []float64, index []int) []float64 {
-	y := make([]float64, len(index))
-	pick_float64s_fill(x, index, y)
-	return y
-}
-
-func pick_float64s_fill(x []float64, index []int, y []float64) {
+func pick_float64s(x []float64, index []int, y []float64) []float64 {
+	y = use_slice(y, len(idx))
 	for i, j := range index {
 		y[i] = x[j]
 	}
+	return y
 }
 
 // covslice_subset_xx_idx returns the indices of elements

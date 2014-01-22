@@ -4,7 +4,7 @@ import (
 	"github.com/zpz/matrix.go/dense"
 )
 
-// Mahalanobis computes squared Mahalanobis distance
+// Mahalanobis computes _squared_ Mahalanobis distance
 // between each row of x and the vector y, with covariance matrix sigma.
 func Mahalanobis(
 	x *dense.Dense,
@@ -22,30 +22,23 @@ func Mahalanobis(
 	out = use_slice(out, n)
 
 	// Diff matrix between x and y.
-	xt := dense.NewDense(p, n)
+	// Each col is an observation; each row is a dimension.
+	// xt has dimensions p, n
+	xt := dense.T(x, nil)
 	for row := 0; row < p; row++ {
-		for col := 0; col < n; col++ {
-			xt.Set(row, col, x.Get(col, row)-y[row])
-		}
+		Shift(xt.RowView(row), -y[row], xt.RowView(row))
 	}
 
-	yy := dense.Solve(sigma, xt, nil)
+	// yy has dimensions p, n
+	yy := dense.Solve(dense.Clone(sigma), dense.Clone(xt))
 
-	// TODO: an 'element-wise multiplication' function
-	// would be better; or if dense.Dense has a 'RowView',
-	// we can use Multiply row by row.
-	for row := 0; row < p; row++ {
-		for col := 0; col < n; col++ {
-			yy.Set(row, col, yy.Get(row, col)*xt.Get(row, col))
-		}
-	}
+	// Element-wise multiplication.
+	yy.Elemult(xt)
 
 	// Col sums of yy.
-	for col := 0; col < n; col++ {
-		out[col] = 0
-		for row := 0; row < p; row++ {
-			out[col] += yy.Get(row, col)
-		}
+	yy.GetRow(0, out)
+	for row := 1; row < p; row++ {
+		Add(out, yy.RowView(row), out)
 	}
 
 	return out

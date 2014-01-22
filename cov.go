@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+// Cov_ computes the covariance between Numeric slices x and y.
 func Cov_(x, y Numeric) float64 {
 	n := x.Len()
 	assert(y.Len() == n, "lengths of x and y differ")
@@ -24,10 +25,14 @@ func Cov_(x, y Numeric) float64 {
 	return cov
 }
 
+// Cov_ computes the covariance between float64 slices x and y.
 func Cov(x, y []float64) float64 {
 	return Cov_(Float64Slice(x), Float64Slice(y))
 }
 
+// Cor_ computes the correlation coefficient between the Numeric slices
+// x and y, returning the correlation coef and covariance between x and
+// y, as well as the standard deviations of x and y.
 func Cor_(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
 	n := x.Len()
 	assert(y.Len() == n, "lengths of x and y differ")
@@ -53,6 +58,9 @@ func Cor_(x, y Numeric) (cor, cov, sd_x, sd_y float64) {
 	return cor, cov, sd_x, sd_y
 }
 
+// Cor_ computes the correlation coefficient between the float64 slices
+// x and y, returning the correlation coef and covariance between x and
+// y, as well as the standard deviations of x and y.
 func Cor(x, y []float64) (cor, cov, sd_x, sd_y float64) {
 	return Cor_(Float64Slice(x), Float64Slice(y))
 }

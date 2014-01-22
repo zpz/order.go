@@ -101,3 +101,20 @@ func (x *LowerTri) Expand(out *dense.Dense) *dense.Dense {
 
 	return out
 }
+
+// symm_fill fills a symmetric matrix with data, which contains
+// its on- and below-diagonal elements in col major.
+func symm_fill(data []float64, mat *dense.Dense) *dense.Dense {
+	// len(data) = (n*n + n)/2 = n * (n+1) / 2
+	n := int(math.Sqrt(2 * len(data)))
+	mat = use_matrix(mat, n, n)
+	for k, i := n, 0; k > 0; k-- {
+		copy(mat.RowView(i)[i:], data[:k])
+		for j := 1; j < k; j++ {
+			mat.Set(n-k+j, i, data[j])
+		}
+		i++
+		data = data[k:]
+	}
+	return mat
+}
