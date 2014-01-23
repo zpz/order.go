@@ -447,20 +447,17 @@ func (mix *Normix) Conditional(
 	sigma_y_covslice := make([]float64, len(sigma_y_covslice_idx))
 	// This holds the lower_tri elements of sigma_y.
 
-	sigma_yx := dense.NewDense(n_y, n_x)
-	// Cov matrix between dims_y and dims_x.
-	sigma_yx_slice_idx := make([]int, n_x*n_y)
+	sigma_xy := dense.NewDense(n_x, n_y)
+	// Cov matrix between dims_x and dims_y.
+	sigma_xy_slice_idx := make([]int, n_x*n_y)
 	// row by row.
-	for k, row := 0, 0; row < n_y; row++ {
-		for col := 0; col < n_x; col++ {
-			sigma_yx_slice_idx[k] = lowertri_ij2idx(
-				n_x+n_y, dims_y[row], dims_x[col])
+	for k, row := 0, 0; row < n_x; row++ {
+		for col := 0; col < n_y; col++ {
+			sigma_xy_slice_idx[k] = lowertri_ij2idx(
+				n_x+n_y, dims_x[row], dims_y[col])
 			k++
 		}
 	}
-
-	// workspaces
-	A := dense.NewDense(n_y, n_x)
 
 	if mix.kind == FreeCovMix {
 		mu_y := make([]float64, n_y)
@@ -478,11 +475,11 @@ func (mix *Normix) Conditional(
 			symm_fill(sigma_y_covslice, sigma_y)
 
 			pick_float64s(sigma,
-				sigma_yx_slice_idx, sigma_yx.DataView())
+				sigma_xy_slice_idx, sigma_xy.DataView())
 
 			conditional_normal(
 				data, mu_y,
-				sigma_y, sigma_yx, A,
+				sigma_y, sigma_xy, nil,
 				mu_x, sigma_x)
 
 			for i, idx := range dims_x {
@@ -506,14 +503,17 @@ func (mix *Normix) Conditional(
 		symm_fill(sigma_y_covslice, sigma_y)
 
 		pick_float64s(sigma,
-			sigma_yx_slice_idx, sigma_yx.DataView())
+			sigma_xy_slice_idx, sigma_xy.DataView())
 
 		mu_x_delta := make([]float64, n_x)
 
 		conditional_normal(
 			data, make([]float64, n_y),
-			sigma_y, sigma_yx, A,
+			sigma_y, sigma_xy, nil,
 			mu_x_delta, sigma_x)
+		// sigma_xy is changed in this function,
+		// and the new value is useful below.
+		A := sigma_xy
 
 		for i, idx := range sigma_x_covslice_idx {
 			sigma_x[i] += sigma[idx]
@@ -816,8 +816,8 @@ func symm_fill(data []float64, mat *dense.Dense) *dense.Dense {
 func conditional_normal(
 	y []float64, // data
 	mu_y []float64, // mean
-	sigma_yy, sigma_yx *dense.Dense, // cov_yy, cov_yx
-	A *dense.Dense, // workspace
+	sigma_yy, sigma_xy *dense.Dense, // cov_yy, cov_xy
+	A *dense.Dense, // workspace; if nil, sigma_xy will be overwritten
 	mu_x_delta, sigma_xx_delta []float64,
 	// Conditional mean of x is original mean of x
 	// plus mu_x_delta;
@@ -827,42 +827,45 @@ func conditional_normal(
 	// mu_{x|y} = mu_x + S_{xy} Inv(S_{yy}) (y - mu_y)
 	// S_{x|y} = S_{xx} - S_{xy} Inv(S_{yy}) S_{yx}
 
-	dimx := sigma_yx.Cols()
+	dimx := sigma_xy.Rows()
 	dimy := len(mu_y)
 	assert(
 		sigma_yy.Rows() == dimy &&
 			sigma_yy.Cols() == dimy &&
-			sigma_yx.Rows() == dimy &&
+			sigma_xy.Cols() == dimy &&
 			len(y) == dimy &&
 			len(mu_x_delta) == dimx &&
 			len(sigma_xx_delta) == (dimx*dimx+dimx)/2,
 		"dimensions mismatch")
 
-	A = use_matrix(A, dimy, dimx)
-	dy := make([]float64, dimy)
-	ddy := make([]float64, dimy)
-	// workspaces
+	if A == nil {
+		A = sigma_xy
+	} else {
+		assert(A.Rows() == dimx && A.Cols() == dimy,
+			"A have wrong shape")
+		dense.Copy(A, sigma_xy)
+	}
 
-	dense.Copy(A, sigma_yx)
-	// TODO: if sigma_yx is not re-used outside of this function,
-	// we may avoid this copy.
+	if chol, ok := dense.CholR(sigma_yy); ok {
+		A = chol.Solve(A)
+		// Now A is sigma_xy * Inv(sigma_yy)
+	} else {
+		panic("sigma_yy is not a valid cov matrix")
+	}
 
-	A = dense.Solve(sigma_yy, A)
-	// TODO: make use of Cholesky? b/c sigma_yy is pd.
-
-	Subtract(y, mu_y, dy)
-	dense.Mult(dense.DenseView(dy, 1, dimy), A,
-		dense.DenseView(mu_x_delta, 1, dimx))
+	dy := Subtract(y, mu_y, nil)
+	dense.Mult(A, dense.DenseView(dy, dimy, 1),
+		dense.DenseView(mu_x_delta, dimx, 1))
 
 	k := 0
 	for col := 0; col < dimx; col++ {
-		A.GetCol(col, dy) // re-use the space 'dy'
 		for row := col; row < dimx; row++ {
-			// Need the element (row, col) of sigma_xy %*% A,
-			// which is the dot product of the col-th column of A
-			// and the row-th column of sigma_yx.
-			sigma_yx.GetCol(row, ddy)
-			sigma_xx_delta[k] = -Dot(dy, ddy)
+			// Need the element (row, col) of A %*% sigma_yx,
+			// which is the dot product of the row-th row of A
+			// and the col-th row of sigma_xy.
+			sigma_xx_delta[k] = -Dot(A.RowView(row),
+				sigma_xy.RowView(col))
+			k++
 		}
 	}
 }

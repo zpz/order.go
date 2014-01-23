@@ -117,12 +117,12 @@ func (mvn *Mvnormal) Random(
 
 	p := len(mvn.mean)
 
-	U, ok := dense.CholeskyR(mvn.cov)
+	U, ok := dense.CholR(mvn.cov)
 	assert(ok, "Cholesky failed")
 
 	z := dense.DenseView(NewNormal(0., 1.).Random(p*n, &RNG{}, nil), n, p)
 
-	out = dense.Mult(z, U, out)
+	out = dense.Mult(z, U.U, out)
 
 	for row := 0; row < n; row++ {
 		Add(out.RowView(row), mvn.mean, out.RowView(row))
