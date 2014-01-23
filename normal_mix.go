@@ -329,25 +329,33 @@ func (mix *Normix) Marginal(dims []int) *Normix {
 	nmix := mix.Size()
 	kind := mix.kind
 
+	assert(ndim > mix.Dim(), "too many elements in dims")
+
+	// TODO: check that dims does not contain duplicate elements.
+
 	z := NewNormix(ndim, nmix, kind)
 
+	// Get z.logweight.
 	copy(z.logweight, mix.logweight)
 
+	// Get z.mean.
 	for imix := 0; imix < nmix; imix++ {
 		pick_float64s(mix.mean.RowView(imix), dims, z.mean.RowView(imix))
 	}
 
-	covidx := covslice_subset_xx_idx(mix.Dim(), dims)
-
+	// Get z.cov.
+	covidx := lowertri_subsetter(mix.Dim(), dims)
 	if kind == FreeCovMix {
 		for imix := 0; imix < nmix; imix++ {
 			pick_float64s(mix.cov.RowView(imix), covidx, z.cov.RowView(imix))
 		}
 	} else {
 		pick_float64s(mix.cov.RowView(0), covidx, z.cov.RowView(0))
-		if kind == ScaledCovMix {
-			copy(z.cov_scale, mix.cov_scale)
-		}
+	}
+
+	// Get z.cov_scale.
+	if kind == ScaledCovMix {
+		copy(z.cov_scale, mix.cov_scale)
 	}
 
 	return z
@@ -360,14 +368,15 @@ func (mix *Normix) Conditional(
 	data []float64,
 	// Data vector.
 	dims []int,
-	// Indices of the elements of data in the
-	// multivariate variable whose density is described by mix.
+	// Values in data correspond to these dimensions in mix.
 	wt_tol float64,
 	// In the resultant mixture density,
 	// components with highest weights that collectively
 	// account for (1 - wt_tol) of the total weight are kept.
 	// Use 0 if you don't know better.
 ) *Normix {
+
+	assert(len(data) == len(dims), "dimensionality mismatch")
 
 	//==================================================
 	// Calculate likelihoods of the data in its marginal
@@ -381,7 +390,7 @@ func (mix *Normix) Conditional(
 	// Update weight of each mixture component
 	// to take into account the likelihoods.
 
-	logwt := Add(loglikely, mix.logweight, nil)
+	logwt := Add(loglikely.DataView(), mix.logweight, nil)
 	logintlikely := LogSumExp(logwt)
 	// Log integrated likelihood.
 	Shift(logwt, -logintlikely, logwt)
@@ -430,116 +439,100 @@ func (mix *Normix) Conditional(
 	// Conditional distribution.
 	copy(mix_x.logweight, logwt)
 
-	y_delta := make([]float64, n_y)
-	// Used to hold y_data - y_mean
-	// as well as some intermediate results.
+	sigma_x_covslice_idx := lowertri_subsetter(n_x+n_y, dims_x)
 
-	sigma_x_covslice_idx := covslice_subset_xx_idx(n_x+n_y, dims_x)
-	// This holds the indices out of the xy cov slice
-	// the produce the cov slice for dimensions dims_x.
-	sigma_x := dense.NewDense(n_x, n_x)
-	// All zeros.
-	// Cov matrix between dimensions dims_x.
+	sigma_y := dense.NewDense(n_y, n_y)
+	// Cov matrix between dimensions dims_y.
+	sigma_y_covslice_idx := lowertri_subsetter(n_x+n_y, dims_y)
+	sigma_y_covslice := make([]float64, len(sigma_y_covslice_idx))
+	// This holds the lower_tri elements of sigma_y.
 
-	sigma_y_slice := make([]float64, n_y*n_y)
-	// This holds the elements for the cov matrix between
-	// dimensions dims_y.
-	sigma_y_covslice_idx := covslice_subset_xx_idx(n_x+n_y, dims_y)
-	// This holds the indices out of the xy cov slice
-	// the produce the cov slice for dimensions dims_y.
-	sigma_y_covslice := NewLowerTri(n_y, nil)
-	// This holds the covslice that would be
-	// created by sigma_y_covslice_idx and expanded into sigma_y_slice.
-
-	sigma_yx_slice := make([]float64, n_y*n_x)
-	// This holds the elements of the cov matrix
-	// between dimensions dims_y and dims_x.
+	sigma_yx := dense.NewDense(n_y, n_x)
+	// Cov matrix between dims_y and dims_x.
 	sigma_yx_slice_idx := make([]int, n_x*n_y)
-	// This holds the indices out of the xy cov slice
-	// that would produce sigma_yx_slice.
-	tri := LowerTri{ndim: n_x + n_y}
-	for n_xy, k, row := n_x+n_y, 0, 0; row < n_y; row++ {
+	// row by row.
+	for k, row := 0, 0; row < n_y; row++ {
 		for col := 0; col < n_x; col++ {
-			sigma_yx_slice_idx[k] = tri.ij2idx(dims_y[row], dims_x[col])
+			sigma_yx_slice_idx[k] = lowertri_ij2idx(
+				n_x+n_y, dims_y[row], dims_x[col])
+			k++
 		}
 	}
 
+	// workspaces
+	A := dense.NewDense(n_y, n_x)
+
 	if mix.kind == FreeCovMix {
+		mu_y := make([]float64, n_y)
+
 		for idx_new, idx_old := range idx_keep {
-			pick_float64s(mix.cov.RowView(idx_old),
-				sigma_y_covslice_idx, sigma_y_covslice.data)
-			sigma_y_covslice.Expand(sigma_y_slice)
-			sigma_y := dense.DenseView(sigma_y_slice, n_y, n_y)
-
-			pick_float64s(mix.cov.RowView(idx_old),
-				sigma_yx_slice_idx, sigma_yx_slice)
-			sigma_yx := dense.DenseView(sigma_yx_slice, n_y, n_x)
-
-			A := dense.Solve(sigma_y, sigma_yx)
-			// FIXME: make use of Cholesky.
-
-			// Get conditional cov slice.
-			//
-			cov_x := mix_x.CovSlice(idx_new)
-			pick_float64s(mix.cov.RowView(idx_old), sigma_x_covslice_idx, cov_x)
-			syxt := dense.T(sigma_yx)
-			syxt.TCopy(sigma_yx)
-			sigma_x.Mul(syxt, A)
-			for k, col := 0, 0; col < n_x; col++ {
-				for row := col; row < n_x; row++ {
-					cov_x[k] -= sigma_x.At(row, col)
-					k++
-				}
-			}
-
-			// Get conditional mean.
-			mu_old := mix.mean.RowView(idx_old)
-			for i, idx := range dims_y {
-				y_delta[i] = data[i] - mu_old[idx]
-			}
+			mu := mix.mean.RowView(idx_old)
+			sigma := mix.cov.RowView(idx_old)
 			mu_x := mix_x.mean.RowView(idx_new)
+			sigma_x := mix_x.cov.RowView(idx_new)
+
+			pick_float64s(mu, dims_y, mu_y)
+
+			pick_float64s(sigma,
+				sigma_y_covslice_idx, sigma_y_covslice)
+			symm_fill(sigma_y_covslice, sigma_y)
+
+			pick_float64s(sigma,
+				sigma_yx_slice_idx, sigma_yx.DataView())
+
+			conditional_normal(
+				data, mu_y,
+				sigma_y, sigma_yx, A,
+				mu_x, sigma_x)
+
 			for i, idx := range dims_x {
-				mu_x[i] = mu_old[idx] + Dot(y_delta, A.RowView(i))
+				mu_x[i] += mu[idx]
+			}
+			for i, idx := range sigma_x_covslice_idx {
+				sigma_x[i] += sigma[idx]
 			}
 		}
 
 	} else {
 		if mix_x.kind == ScaledCovMix {
-			copy(mix_x.cov_scale, mix.cov_scale)
+			pick_float64s(mix.cov_scale, idx_keep, mix_x.cov_scale)
 		}
 
-		pick_float64s(mix.cov, sigma_y_covslice_idx, sigma_y_covslice)
-		sigma_y_covslice.Expand(sigma_y_slice)
-		sigma_y := (&dense.Dense{}).LoadData(sigma_y_slice, n_y, n_y)
+		sigma := mix.cov.RowView(0)
+		sigma_x := mix_x.cov.RowView(0)
 
-		pick_float64s(mix.cov, sigma_yx_slice_idx, sigma_yx_slice)
-		sigma_yx := dense.DenseView(sigma_yx_slice, n_y, n_x)
+		pick_float64s(sigma,
+			sigma_y_covslice_idx, sigma_y_covslice)
+		symm_fill(sigma_y_covslice, sigma_y)
 
-		A := dense.Solve(sigma_y, sigma_yx)
-		// FIXME: make use of Cholesky.
+		pick_float64s(sigma,
+			sigma_yx_slice_idx, sigma_yx.DataView())
 
-		// Get conditional cov slice.
-		//
-		pick_float64s(mix.cov, sigma_x_covslice_idx, mix_x.cov)
-		var syxt *dense.Dense
-		syxt.TCopy(sigma_yx)
-		sigma_x.Mul(syxt, A)
-		for k, col := 0, 0; col < n_x; col++ {
-			for row := col; row < n_x; row++ {
-				mix_x.cov[k] -= sigma_x.At(row, col)
-				k++
-			}
+		mu_x_delta := make([]float64, n_x)
+
+		conditional_normal(
+			data, make([]float64, n_y),
+			sigma_y, sigma_yx, A,
+			mu_x_delta, sigma_x)
+
+		for i, idx := range sigma_x_covslice_idx {
+			sigma_x[i] += sigma[idx]
 		}
 
-		// Get conditional mean
+		mu_y := make([]float64, n_y)
+
 		for idx_new, idx_old := range idx_keep {
-			mu_old := mix.MeanSlice(idx_old)
-			for i, idx := range dims_y {
-				y_delta[i] = data[i] - mu_old[idx]
-			}
-			mu_new := mix_x.MeanSlice(idx_new)
+			mu := mix.mean.RowView(idx_old)
+			mu_x := mix_x.mean.RowView(idx_new)
+
+			pick_float64s(mu, dims_y, mu_y)
+			dense.Mult(dense.DenseView(mu_y, 1, n_y), A,
+				dense.DenseView(mu_x, 1, n_x))
+
+			Subtract(mu_x_delta, mu_x, mu_x)
+
 			for i, idx := range dims_x {
-				mu_new[i] = mu_old[idx] + Dot(y_delta, A.RowView(i))
+				mu_x[i] += mu[idx]
 			}
 		}
 	}
@@ -600,7 +593,7 @@ func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense 
 	} else {
 		// Create a mvn with zero mean.
 		mvn := NewMvnormal(make([]float64, ndim),
-			symm_fill(mix.cov.Rowview(0), cov_mat))
+			symm_fill(mix.cov.RowView(0), cov_mat))
 
 		// Subtract mean from all data so that their densities
 		// are computed using the zero-mean distribution above.
@@ -627,7 +620,9 @@ func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense 
 			for imix := 0; imix < nmix; imix++ {
 				res := out.RowView(imix)
 				cov_scale := mix.cov_scale[imix]
-				coef := 1.0 / math.Sqrt(math.Pow(2*math.Pi*cov_scale)*cov_det)
+				coef := 1.0 / math.Sqrt(
+					math.Pow(2*math.Pi*cov_scale, float64(ndim))*
+						cov_det)
 				Scale(dist[imix*nx:(imix+1)*nx], -0.5/cov_scale, res)
 				Transform(res, math.Exp, res)
 				Scale(res, coef, res)
@@ -750,27 +745,124 @@ func exclude(n int, index []int) []int {
 // pick_float64s returns a subslice with the elements
 // at the specified indices.
 func pick_float64s(x []float64, index []int, y []float64) []float64 {
-	y = use_slice(y, len(idx))
+	y = use_slice(y, len(index))
 	for i, j := range index {
 		y[i] = x[j]
 	}
 	return y
 }
 
-// covslice_subset_xx_idx returns the indices of elements
-// in a cov slice that would create the cov slice for
-// the subset of dimensions specified in dims.
-// The elements in dims are not required to be ordered.
-func covslice_subset_xx_idx(ndim int, dims []int) []int {
-	n := len(dims)
-	idx := make([]int, (n*n+n)/2)
-	k := 0
-	tri := LowerTri{ndim: ndim}
-	for col := 0; col < n; col++ {
-		for row := col; row < n; row++ {
-			idx[k] = tri.ij2idx(dims[row], dims[col])
+// lowertri_subsetter takes the dimensionality of a square matrix,
+// and outputs the indices into its col-major on- and below-diagonal
+// element slice that would produce a similar lower-triangular
+// slice for the specified dimensions.
+func lowertri_subsetter(ndim_in int, dims []int) []int {
+	ndim_out := len(dims)
+	n_out := (ndim_out * (ndim_out + 1)) / 2
+	out := make([]int, n_out)
+
+	k := 0 // index in out to write next
+	for col := 0; col < ndim_out; col++ {
+		for row := col; row < ndim_out; row++ {
+			out[k] = lowertri_ij2idx(ndim_in, dims[row], dims[col])
 			k++
 		}
 	}
-	return idx
+
+	return out
+}
+
+// lowertri_ij2idx returns the index of the element
+// in a lower-triangular slice that represents the element (row, col)
+// in the full matrix.
+func lowertri_ij2idx(ndim, row, col int) int {
+	// Total number of elements up to, but not including,
+	// column j in the slice:
+	//        n + (n-1) +...+ (n-j+1)
+	//      = (n + n-j+1)/2 * (n - (n-j+1) + 1)
+	//      = j * (n + n - j + 1) / 2
+	//      = j * n - j * (j-1) / 2
+	//
+	// Check:
+	//   j = 0: --> 0
+	//   j = 1: --> n
+	//   j = 2: --> n + n - 1
+	//   j = 3: --> 3 * (n - 1) = n + (n-1) + (n-2)
+
+	if row < col {
+		row, col = col, row
+	}
+
+	return col*ndim - (col*(col-1))/2 + row - col
+}
+
+// symm_fill fills the symmetric matrix mat with data, which contains
+// mat's on- and below-diagonal elements in col major.
+func symm_fill(data []float64, mat *dense.Dense) *dense.Dense {
+	// len(data) = (n*n + n)/2 = n * (n+1) / 2
+	n := int(math.Sqrt(2.0 * float64(len(data))))
+	mat = use_matrix(mat, n, n)
+	for k, i := n, 0; k > 0; k-- {
+		copy(mat.RowView(i)[i:], data[:k])
+		for j := 1; j < k; j++ {
+			mat.Set(n-k+j, i, data[j])
+		}
+		i++
+		data = data[k:]
+	}
+	return mat
+}
+
+func conditional_normal(
+	y []float64, // data
+	mu_y []float64, // mean
+	sigma_yy, sigma_yx *dense.Dense, // cov_yy, cov_yx
+	A *dense.Dense, // workspace
+	mu_x_delta, sigma_xx_delta []float64,
+	// Conditional mean of x is original mean of x
+	// plus mu_x_delta;
+	// conditional cov of x (the lower-tri elements)
+	// is original cov of x plus sigma_xx_delta.
+) {
+	// mu_{x|y} = mu_x + S_{xy} Inv(S_{yy}) (y - mu_y)
+	// S_{x|y} = S_{xx} - S_{xy} Inv(S_{yy}) S_{yx}
+
+	dimx := sigma_yx.Cols()
+	dimy := len(mu_y)
+	assert(
+		sigma_yy.Rows() == dimy &&
+			sigma_yy.Cols() == dimy &&
+			sigma_yx.Rows() == dimy &&
+			len(y) == dimy &&
+			len(mu_x_delta) == dimx &&
+			len(sigma_xx_delta) == (dimx*dimx+dimx)/2,
+		"dimensions mismatch")
+
+	A = use_matrix(A, dimy, dimx)
+	dy := make([]float64, dimy)
+	ddy := make([]float64, dimy)
+	// workspaces
+
+	dense.Copy(A, sigma_yx)
+	// TODO: if sigma_yx is not re-used outside of this function,
+	// we may avoid this copy.
+
+	A = dense.Solve(sigma_yy, A)
+	// TODO: make use of Cholesky? b/c sigma_yy is pd.
+
+	Subtract(y, mu_y, dy)
+	dense.Mult(dense.DenseView(dy, 1, dimy), A,
+		dense.DenseView(mu_x_delta, 1, dimx))
+
+	k := 0
+	for col := 0; col < dimx; col++ {
+		A.GetCol(col, dy) // re-use the space 'dy'
+		for row := col; row < dimx; row++ {
+			// Need the element (row, col) of sigma_xy %*% A,
+			// which is the dot product of the col-th column of A
+			// and the row-th column of sigma_yx.
+			sigma_yx.GetCol(row, ddy)
+			sigma_xx_delta[k] = -Dot(dy, ddy)
+		}
+	}
 }
