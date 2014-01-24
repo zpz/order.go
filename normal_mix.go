@@ -850,7 +850,7 @@ func conditional_normal(
 		A = chol.Solve(A)
 		// Now A is sigma_xy * Inv(sigma_yy)
 	} else {
-		panic("sigma_yy is not a valid cov matrix")
+		panic("Cholesky failed on cov matrix")
 	}
 
 	dy := Subtract(y, mu_y, nil)

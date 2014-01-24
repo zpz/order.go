@@ -30,16 +30,20 @@ func Mahalanobis(
 	}
 
 	// yy has dimensions p, n
-	yy := dense.Solve(dense.Clone(sigma), dense.Clone(xt))
+	if chol, ok := dense.Chol(sigma); ok {
+		yy := chol.Solve(dense.Clone(xt))
 
-	// Element-wise multiplication.
-	yy.Elemult(xt)
+		// Element-wise multiplication.
+		yy.Elemult(xt)
 
-	// Col sums of yy.
-	yy.GetRow(0, out)
-	for row := 1; row < p; row++ {
-		Add(out, yy.RowView(row), out)
+		// Col sums of yy.
+		yy.GetRow(0, out)
+		for row := 1; row < p; row++ {
+			Add(out, yy.RowView(row), out)
+		}
+
+		return out
 	}
 
-	return out
+	panic("Cholesky failed on cov matrix")
 }
