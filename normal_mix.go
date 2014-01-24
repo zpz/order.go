@@ -846,8 +846,8 @@ func conditional_normal(
 		dense.Copy(A, sigma_xy)
 	}
 
-	if chol, ok := dense.CholR(sigma_yy); ok {
-		A = chol.Solve(A)
+	if chol, ok := dense.Chol(sigma_yy); ok {
+		A = chol.SolveR(A)
 		// Now A is sigma_xy * Inv(sigma_yy)
 	} else {
 		panic("Cholesky failed on cov matrix")
