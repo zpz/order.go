@@ -122,12 +122,7 @@ func (mvn *Mvnormal) Random(
 
 	z := dense.DenseView(NewNormal(0., 1.).Random(p*n, &RNG{}, nil), n, p)
 
-	U := dense.NewDense(p, p)
-	dense.CopyLower(U, chol.LU)
-	dense.CopyDiag(U, chol.LU)
-	// TODO: can we avoid this copying?
-
-	out = dense.Mult(z, U, out)
+	out = dense.Mult(z, dense.T(chol.L(), nil), out)
 
 	for row := 0; row < n; row++ {
 		Add(out.RowView(row), mvn.mean, out.RowView(row))
