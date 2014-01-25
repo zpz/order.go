@@ -32,3 +32,17 @@ func use_matrix(in *dense.Dense, rows, cols int) *dense.Dense {
 	assert(r == rows && c == cols, "Provided matrix has wrong shape")
 	return in
 }
+
+func smaller(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func bigger(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
