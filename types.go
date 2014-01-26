@@ -2,10 +2,14 @@ package stats
 
 import "sort"
 
+type Sortable interface {
+	sort.Interface
+}
+
 type Numeric interface {
+	Sortable
 	Get(int) float64
 	Set(int, float64)
-	sort.Interface
 }
 
 // Float64Slice implements Numeric.
