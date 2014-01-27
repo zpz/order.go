@@ -249,7 +249,7 @@ func (mix *Normix) Density(x *dense.Dense, out []float64) []float64 {
 		out = zz.GetData(out)
 	} else {
 		for imix := 0; imix < nmix; imix++ {
-			Shift(zz.RowView(imix), mix.logweight[imix], zz.RowView(imix))
+			FloatShift(zz.RowView(imix), mix.logweight[imix], zz.RowView(imix))
 		}
 		lw := make([]float64, nmix)
 		for ix := 0; ix < nx; ix++ {
@@ -257,7 +257,7 @@ func (mix *Normix) Density(x *dense.Dense, out []float64) []float64 {
 		}
 	}
 
-	return Transform(out, math.Exp, out)
+	return FloatTransform(out, math.Exp, out)
 }
 
 // Random generates n random samples from the normal mixture
@@ -281,7 +281,7 @@ func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
 
 		for i, idx := range mixidx {
 			z := out.RowView(i)
-			Add(z, mix.mean.RowView(idx), z)
+			FloatAdd(z, mix.mean.RowView(idx), z)
 		}
 
 	case ScaledCovMix:
@@ -292,8 +292,8 @@ func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
 
 		for i, idx := range mixidx {
 			z := out.RowView(i)
-			Scale(z, math.Sqrt(mix.cov_scale[idx]), z)
-			Add(z, mix.mean.RowView(idx), z)
+			FloatScale(z, math.Sqrt(mix.cov_scale[idx]), z)
+			FloatAdd(z, mix.mean.RowView(idx), z)
 		}
 
 	case FreeCovMix:
@@ -390,10 +390,10 @@ func (mix *Normix) Conditional(
 	// Update weight of each mixture component
 	// to take into account the likelihoods.
 
-	logwt := Add(loglikely.DataView(), mix.logweight, nil)
+	logwt := FloatAdd(loglikely.DataView(), mix.logweight, nil)
 	logintlikely := LogSumExp(logwt)
 	// Log integrated likelihood.
-	Shift(logwt, -logintlikely, logwt)
+	FloatShift(logwt, -logintlikely, logwt)
 	// Normalized; now sum(exp(logwt)) = 1.
 
 	// Screen the mixture components and discard those
@@ -413,7 +413,7 @@ func (mix *Normix) Conditional(
 				"components for a total weight of",
 				total_wt)
 
-			Shift(logwt, -LogSumExp(logwt), logwt)
+			FloatShift(logwt, -LogSumExp(logwt), logwt)
 			// Normalize so that weights sum to 1.
 		}
 	} else {
@@ -529,7 +529,7 @@ func (mix *Normix) Conditional(
 			dense.Mult(dense.DenseView(mu_y, 1, n_y), A,
 				dense.DenseView(mu_x, 1, n_x))
 
-			Subtract(mu_x_delta, mu_x, mu_x)
+			FloatSubtract(mu_x_delta, mu_x, mu_x)
 
 			for i, idx := range dims_x {
 				mu_x[i] += mu[idx]
@@ -602,7 +602,7 @@ func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense 
 			xxview := xx.SubmatrixView(imix*nx, 0, nx, ndim)
 			dense.Copy(xxview, x)
 			for row := 0; row < nx; row++ {
-				Subtract(xxview.RowView(row), mix.mean.RowView(imix),
+				FloatSubtract(xxview.RowView(row), mix.mean.RowView(imix),
 					xxview.RowView(row))
 			}
 		}
@@ -623,9 +623,9 @@ func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense 
 				coef := 1.0 / math.Sqrt(
 					math.Pow(2*math.Pi*cov_scale, float64(ndim))*
 						cov_det)
-				Scale(dist[imix*nx:(imix+1)*nx], -0.5/cov_scale, res)
-				Transform(res, math.Exp, res)
-				Scale(res, coef, res)
+				FloatScale(dist[imix*nx:(imix+1)*nx], -0.5/cov_scale, res)
+				FloatTransform(res, math.Exp, res)
+				FloatScale(res, coef, res)
 			}
 		}
 	}
@@ -679,7 +679,7 @@ func lose_weight(
 	logwt := append([]float64{}, logweight...)
 
 	// Normalize, such that sum(exp(logwt)) == 1.
-	Shift(logwt, -LogSumExp(logwt), logwt)
+	FloatShift(logwt, -LogSumExp(logwt), logwt)
 
 	// Get indices listing the weights in descending order.
 	idx_ordered := Order(logwt, nil)
@@ -853,7 +853,7 @@ func conditional_normal(
 		panic("Cholesky failed on cov matrix")
 	}
 
-	dy := Subtract(y, mu_y, nil)
+	dy := FloatSubtract(y, mu_y, nil)
 	dense.Mult(A, dense.DenseView(dy, dimy, 1),
 		dense.DenseView(mu_x_delta, dimx, 1))
 
@@ -863,7 +863,7 @@ func conditional_normal(
 			// Need the element (row, col) of A %*% sigma_yx,
 			// which is the dot product of the row-th row of A
 			// and the col-th row of sigma_xy.
-			sigma_xx_delta[k] = -Dot(A.RowView(row),
+			sigma_xx_delta[k] = -FloatDot(A.RowView(row),
 				sigma_xy.RowView(col))
 			k++
 		}

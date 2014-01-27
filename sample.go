@@ -35,13 +35,13 @@ func WeightedSample(w []float64, n int, idx []int) []int {
 // as normalization is performed internally.
 func LogweightedSample(logw []float64, n int, idx []int) []int {
 	w := make([]float64, len(logw))
-	max, _ := Max(logw)
+	max, _ := FloatMax(logw)
 	var sum float64
 	for i, lw := range logw {
 		w[i] = math.Exp(lw - max)
 		sum += w[i]
 	}
-	Scale(w, 1/sum, w)
+	FloatScale(w, 1/sum, w)
 
 	return WeightedSample(w, n, idx)
 }

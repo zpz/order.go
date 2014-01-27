@@ -125,7 +125,7 @@ func (mvn *Mvnormal) Random(
 	out = dense.Mult(z, dense.T(chol.L(), nil), out)
 
 	for row := 0; row < n; row++ {
-		Add(out.RowView(row), mvn.mean, out.RowView(row))
+		FloatAdd(out.RowView(row), mvn.mean, out.RowView(row))
 	}
 
 	// Alternative algorithm: see function 'mvrnom' in the R package

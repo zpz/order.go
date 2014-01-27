@@ -26,7 +26,7 @@ func Mahalanobis(
 	// xt has dimensions p, n
 	xt := dense.T(x, nil)
 	for row := 0; row < p; row++ {
-		Shift(xt.RowView(row), -y[row], xt.RowView(row))
+		FloatShift(xt.RowView(row), -y[row], xt.RowView(row))
 	}
 
 	// yy has dimensions p, n
@@ -39,7 +39,7 @@ func Mahalanobis(
 		// Col sums of yy.
 		yy.GetRow(0, out)
 		for row := 1; row < p; row++ {
-			Add(out, yy.RowView(row), out)
+			FloatAdd(out, yy.RowView(row), out)
 		}
 
 		return out

@@ -2,6 +2,7 @@ package stats
 
 import (
 	"math"
+	"sort"
 )
 
 // Median returns the median of data.
@@ -18,11 +19,11 @@ func Median(data []float64) float64 {
 	mid := n / 2
 
 	if mid*2 == n {
-		PartialSort(Float64Slice(data), mid)
-		PartialSort(Float64Slice(data[:mid]), mid-1)
+		PartialSort(sort.Float64Slice(data), mid)
+		PartialSort(sort.Float64Slice(data[:mid]), mid-1)
 		return (data[mid] + data[mid-1]) * 0.5
 	}
 
-	PartialSort(Float64Slice(data), mid)
+	PartialSort(sort.Float64Slice(data), mid)
 	return data[mid]
 }
