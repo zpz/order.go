@@ -75,7 +75,11 @@ func FloatRange(x []float64) (float64, float64) {
 }
 
 func FloatMean(x []float64) float64 {
-	return FloatSum(x) / float64(len(x))
+	m := 0.0
+	for i, v := range x {
+		m += (v - m) / float64(i+1.0)
+	}
+	return m
 }
 
 func FloatAverage(x []float64, f func(float64) float64) float64 {
@@ -84,6 +88,16 @@ func FloatAverage(x []float64, f func(float64) float64) float64 {
 		res += (f(v) - res) / float64(i+1.0)
 	}
 	return res
+}
+
+// FloatWeightedMean computes the weighted mean of x with relative
+// weights wt. The weights are not assumed to sum to 1;
+// their relative values are used.
+// x and wt must have the same length;
+// elements of wt must all be non-negative;
+// these two requirements are not checked.
+func FloatWeightedMean(x, wt []float64) float64 {
+	return FloatDot(x, wt) / FloatSum(wt)
 }
 
 // FloatMSD computes mean squared deviation about a specified value.
