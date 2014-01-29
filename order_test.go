@@ -22,10 +22,10 @@ func TestFloat64s(t *testing.T) {
 	var float64s_stable = []float64{74.3, 26.2, 58., 58., math.NaN(), math.NaN(), 58., 40.}
 
 	fmt.Println("Float64s: ", float64s)
-	fmt.Println("Order: ", Order(float64s, nil))
+	fmt.Println("Order: ", FloatOrder(float64s, nil))
 	fmt.Println("Correct order: 3, 1, 4, 2, 0")
 	fmt.Println("Ints: ", float64s_stable)
-	fmt.Println("Order: ", StableOrder(float64s_stable, nil))
+	fmt.Println("Order: ", FloatStableOrder(float64s_stable, nil))
 }
 
 func TestStrings(t *testing.T) {

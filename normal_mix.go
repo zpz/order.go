@@ -265,7 +265,7 @@ func (mix *Normix) Density(x *dense.Dense, out []float64) []float64 {
 // one case after another.
 func (mix *Normix) Random(n int, out *dense.Dense) *dense.Dense {
 	ndim := mix.Dim()
-	out = use_matrix(out, n, ndim)
+	out = use_dense(out, n, ndim)
 
 	mixidx := LogweightedSample(mix.logweight, n, nil)
 	sort.Ints(mixidx)
@@ -340,17 +340,17 @@ func (mix *Normix) Marginal(dims []int) *Normix {
 
 	// Get z.mean.
 	for imix := 0; imix < nmix; imix++ {
-		pick_float64s(mix.mean.RowView(imix), dims, z.mean.RowView(imix))
+		pick_floats(mix.mean.RowView(imix), dims, z.mean.RowView(imix))
 	}
 
 	// Get z.cov.
 	covidx := lowertri_subsetter(mix.Dim(), dims)
 	if kind == FreeCovMix {
 		for imix := 0; imix < nmix; imix++ {
-			pick_float64s(mix.cov.RowView(imix), covidx, z.cov.RowView(imix))
+			pick_floats(mix.cov.RowView(imix), covidx, z.cov.RowView(imix))
 		}
 	} else {
-		pick_float64s(mix.cov.RowView(0), covidx, z.cov.RowView(0))
+		pick_floats(mix.cov.RowView(0), covidx, z.cov.RowView(0))
 	}
 
 	// Get z.cov_scale.
@@ -405,7 +405,7 @@ func (mix *Normix) Conditional(
 		idx_keep := lose_weight(logwt, 1-wt_tol)
 
 		if len(idx_keep) < len(logwt) {
-			logwt = pick_float64s(logwt, idx_keep, nil)
+			logwt = pick_floats(logwt, idx_keep, nil)
 			total_wt := math.Exp(LogSumExp(logwt))
 
 			log.Println("keeping",
@@ -468,13 +468,13 @@ func (mix *Normix) Conditional(
 			mu_x := mix_x.mean.RowView(idx_new)
 			sigma_x := mix_x.cov.RowView(idx_new)
 
-			pick_float64s(mu, dims_y, mu_y)
+			pick_floats(mu, dims_y, mu_y)
 
-			pick_float64s(sigma,
+			pick_floats(sigma,
 				sigma_y_covslice_idx, sigma_y_covslice)
 			symm_fill(sigma_y_covslice, sigma_y)
 
-			pick_float64s(sigma,
+			pick_floats(sigma,
 				sigma_xy_slice_idx, sigma_xy.DataView())
 
 			conditional_normal(
@@ -492,17 +492,17 @@ func (mix *Normix) Conditional(
 
 	} else {
 		if mix_x.kind == ScaledCovMix {
-			pick_float64s(mix.cov_scale, idx_keep, mix_x.cov_scale)
+			pick_floats(mix.cov_scale, idx_keep, mix_x.cov_scale)
 		}
 
 		sigma := mix.cov.RowView(0)
 		sigma_x := mix_x.cov.RowView(0)
 
-		pick_float64s(sigma,
+		pick_floats(sigma,
 			sigma_y_covslice_idx, sigma_y_covslice)
 		symm_fill(sigma_y_covslice, sigma_y)
 
-		pick_float64s(sigma,
+		pick_floats(sigma,
 			sigma_xy_slice_idx, sigma_xy.DataView())
 
 		mu_x_delta := make([]float64, n_x)
@@ -525,7 +525,7 @@ func (mix *Normix) Conditional(
 			mu := mix.mean.RowView(idx_old)
 			mu_x := mix_x.mean.RowView(idx_new)
 
-			pick_float64s(mu, dims_y, mu_y)
+			pick_floats(mu, dims_y, mu_y)
 			dense.Mult(dense.DenseView(mu_y, 1, n_y), A,
 				dense.DenseView(mu_x, 1, n_x))
 
@@ -549,7 +549,7 @@ func (mix *Normix) density_stats(x *dense.Dense, out *dense.Dense) *dense.Dense 
 	nx := x.Rows()
 
 	assert(x.Cols() == ndim, "input x has wrong shape")
-	out = use_matrix(out, nmix, nx)
+	out = use_dense(out, nmix, nx)
 
 	if ndim == 1 {
 		var xx []float64
@@ -682,7 +682,7 @@ func lose_weight(
 	FloatShift(logwt, -LogSumExp(logwt), logwt)
 
 	// Get indices listing the weights in descending order.
-	idx_ordered := Order(logwt, nil)
+	idx_ordered := FloatOrder(logwt, nil)
 	sortutil.Reverse(idx_ordered)
 
 	n := len(logwt)
@@ -721,35 +721,6 @@ func lose_weight(
 	idx := make([]int, k)
 	copy(idx, idx_ordered[:k])
 	return idx
-}
-
-// exclude returns integers between 0 (inclusive) and
-// n (exclusive), excluding those in index.
-// Does not assume elements in include are sorted
-// (otherwise the code can be more efficient).
-func exclude(n int, index []int) []int {
-	idx := make([]int, n)
-	for _, i := range index {
-		idx[i] = 1
-	}
-	k := 0
-	for j := 0; j < n; j++ {
-		if idx[j] == 0 {
-			idx[k] = j
-			k++
-		}
-	}
-	return idx[:k]
-}
-
-// pick_float64s returns a subslice with the elements
-// at the specified indices.
-func pick_float64s(x []float64, index []int, y []float64) []float64 {
-	y = use_slice(y, len(index))
-	for i, j := range index {
-		y[i] = x[j]
-	}
-	return y
 }
 
 // lowertri_subsetter takes the dimensionality of a square matrix,
@@ -801,7 +772,7 @@ func lowertri_ij2idx(ndim, row, col int) int {
 func symm_fill(data []float64, mat *dense.Dense) *dense.Dense {
 	// len(data) = (n*n + n)/2 = n * (n+1) / 2
 	n := int(math.Sqrt(2.0 * float64(len(data))))
-	mat = use_matrix(mat, n, n)
+	mat = use_dense(mat, n, n)
 	for k, i := n, 0; k > 0; k-- {
 		copy(mat.RowView(i)[i:], data[:k])
 		for j := 1; j < k; j++ {

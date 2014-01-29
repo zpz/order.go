@@ -46,7 +46,7 @@ func order(
 	return idx
 }
 
-// Order_ returns an index array which would place the elements
+// Order returns an index array which would place the elements
 // of the input collection, i.e. data, into ascending order.
 // For example, conceptually,
 // Order([]int{3, 5, 2, 6}) returns []int{2, 0, 1, 3}.
@@ -57,11 +57,11 @@ func order(
 // If idx is not nil but does not have enough space, an error will result.
 //
 // Upon return, the elements in data have been re-ordered.
-func Order_(data OrderInterface, idx []int) []int {
+func Order(data OrderInterface, idx []int) []int {
 	return order(data, idx, false)
 }
 
-func StableOrder_(data OrderInterface, idx []int) []int {
+func StableOrder(data OrderInterface, idx []int) []int {
 	return order(data, idx, true)
 }
 
@@ -90,13 +90,13 @@ func make_float64_index_slice(x []float64) float64_index_slice {
 }
 
 // The input data x is not changed in this operation.
-func Order(x []float64, idx []int) []int {
-	return Order_(make_float64_index_slice(x), idx)
+func FloatOrder(x []float64, idx []int) []int {
+	return Order(make_float64_index_slice(x), idx)
 }
 
 // The input data x is not changed in this operation.
-func StableOrder(x []float64, idx []int) []int {
-	return StableOrder_(make_float64_index_slice(x), idx)
+func FloatStableOrder(x []float64, idx []int) []int {
+	return StableOrder(make_float64_index_slice(x), idx)
 }
 
 type int_index struct {
@@ -121,11 +121,11 @@ func make_int_index_slice(x []int) int_index_slice {
 }
 
 func IntOrder(x []int, idx []int) []int {
-	return Order_(make_int_index_slice(x), idx)
+	return Order(make_int_index_slice(x), idx)
 }
 
 func IntStableOrder(x []int, idx []int) []int {
-	return StableOrder_(make_int_index_slice(x), idx)
+	return StableOrder(make_int_index_slice(x), idx)
 }
 
 type string_index struct {
@@ -151,9 +151,9 @@ func make_string_index_slice(x []string) string_index_slice {
 }
 
 func StringOrder(x []string, idx []int) []int {
-	return Order_(make_string_index_slice(x), idx)
+	return Order(make_string_index_slice(x), idx)
 }
 
 func StringStableOrder(x []string, idx []int) []int {
-	return StableOrder_(make_string_index_slice(x), idx)
+	return StableOrder(make_string_index_slice(x), idx)
 }

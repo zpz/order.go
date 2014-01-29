@@ -16,7 +16,7 @@ func FloatCov(data [][]float64, out *dense.Dense) *dense.Dense {
 
 	n := len(data[0])
 
-	out = use_matrix(out, p, p)
+	out = use_dense(out, p, p)
 
 	means := make([]float64, p)
 	for i := 0; i < p; i++ {
@@ -47,7 +47,7 @@ func FloatCov(data [][]float64, out *dense.Dense) *dense.Dense {
 // out can be the same as x, amounting to in-place conversion.
 func Cov2Cor(x, out *dense.Dense) *dense.Dense {
 	p := x.Rows()
-	out = use_matrix(out, p, p)
+	out = use_dense(out, p, p)
 
 	sd := x.GetDiag(nil)
 	FloatTransform(sd, math.Sqrt, sd)
@@ -84,7 +84,7 @@ func FloatWeightedCov(
 	// Make a copy of the weights and normalize.
 	w := FloatScale(wt, 1.0/FloatSum(wt), nil)
 
-	out = use_matrix(out, p, p)
+	out = use_dense(out, p, p)
 
 	means := make([]float64, p)
 	for i := 0; i < p; i++ {

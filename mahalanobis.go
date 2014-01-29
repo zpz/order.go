@@ -19,7 +19,7 @@ func Mahalanobis(
 	assert(r == p && c == p,
 		"Dimensionalities of input data and sigma mismatch")
 
-	out = use_slice(out, n)
+	out = use_float_slice(out, n)
 
 	// Diff matrix between x and y.
 	// Each col is an observation; each row is a dimension.

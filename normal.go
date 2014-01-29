@@ -28,7 +28,7 @@ func (norm *Normal) Density(
 
 	coef := 1.0 / (Sqrt2Pi * norm.sd)
 
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 
 	for i, v := range x {
 		z := (v - norm.mean) / norm.sd
@@ -44,7 +44,7 @@ func (norm *Normal) Random(
 	_ RandomNumberGenerator,
 	out []float64) []float64 {
 
-	out = use_slice(out, n)
+	out = use_float_slice(out, n)
 	for i := range out {
 		out[i] = rand.NormFloat64()*norm.sd + norm.mean
 	}
@@ -92,7 +92,7 @@ func (mvn *Mvnormal) Density(
 	assert(len(mvn.mean) == p,
 		"Dimensionalities of input 'x' and distribution mismatch")
 
-	out = use_slice(out, n)
+	out = use_float_slice(out, n)
 
 	// Mahalanobis distance
 	Mahalanobis(x, mvn.mean, mvn.cov, out)

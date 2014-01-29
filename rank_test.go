@@ -22,10 +22,10 @@ func TestFloat64sRank(t *testing.T) {
 	var float64s_stable = []float64{74.3, 26.2, 58., 58., math.NaN(), math.NaN(), 58., 40.}
 
 	fmt.Println("Float64s: ", float64s)
-	fmt.Println("Rank: ", Rank(float64s, nil))
+	fmt.Println("Rank: ", FloatRank(float64s, nil))
 	fmt.Println("Correct Rank: 4, 1, 3, 0, 2")
 	fmt.Println("Ints: ", float64s_stable)
-	fmt.Println("Rank: ", StableRank(float64s_stable, nil))
+	fmt.Println("Rank: ", FloatStableRank(float64s_stable, nil))
 }
 
 func TestStringsRank(t *testing.T) {

@@ -3,7 +3,7 @@ package stats
 // out can be x, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatShift(x []float64, amnt float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val + amnt
 	}
@@ -13,7 +13,7 @@ func FloatShift(x []float64, amnt float64, out []float64) []float64 {
 // out can be x, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatScale(x []float64, factor float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val * factor
 	}
@@ -23,7 +23,7 @@ func FloatScale(x []float64, factor float64, out []float64) []float64 {
 // out can be x, or y, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatAdd(x, y []float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val + y[i]
 	}
@@ -33,7 +33,7 @@ func FloatAdd(x, y []float64, out []float64) []float64 {
 // out can be x, or y, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatAddScaled(x, y []float64, yfactor float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val + y[i]*yfactor
 	}
@@ -43,7 +43,7 @@ func FloatAddScaled(x, y []float64, yfactor float64, out []float64) []float64 {
 // out can be x, or y, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatSubtract(x, y []float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val - y[i]
 	}
@@ -53,7 +53,7 @@ func FloatSubtract(x, y []float64, out []float64) []float64 {
 // out can be x, or y, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatMultiply(x, y []float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val * y[i]
 	}
@@ -63,7 +63,7 @@ func FloatMultiply(x, y []float64, out []float64) []float64 {
 // out can be x, or y, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func Divide(x, y []float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = val / y[i]
 	}
@@ -73,7 +73,7 @@ func Divide(x, y []float64, out []float64) []float64 {
 // out can be x, or a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatTransform(x []float64, f func(float64) float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	for i, val := range x {
 		out[i] = f(val)
 	}
@@ -97,7 +97,7 @@ func Center(x []float64, out []float64) []float64 {
 // out can be x, a prepared output slice, or nil,
 // in which case an output slice is created.
 func Standardize(x []float64, out []float64) []float64 {
-	out = use_slice(out, len(x))
+	out = use_float_slice(out, len(x))
 	sd, mean := FloatSd(x)
 	for i, val := range x {
 		out[i] = (val - mean) / sd
@@ -108,7 +108,7 @@ func Standardize(x []float64, out []float64) []float64 {
 // out can be a prepared output slice, or nil,
 // in which case an output slice is created.
 func FloatGenerate(n int, f func(int) float64, out []float64) []float64 {
-	out = use_slice(out, n)
+	out = use_float_slice(out, n)
 	for i := 0; i < n; i++ {
 		out[i] = f(i)
 	}
@@ -196,7 +196,7 @@ func FloatWhich(x []float64, f func(float64) bool, out []int) []int {
 // out may be a prepared output slice or nil,
 // in which case an output slice is created.
 func PickByIndex(x []float64, idx []int, out []float64) []float64 {
-	out = use_slice(out, len(idx))
+	out = use_float_slice(out, len(idx))
 	for i, j := range idx {
 		out[i] = x[j]
 	}
