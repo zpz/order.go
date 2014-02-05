@@ -125,23 +125,6 @@ func FloatSeq(from, to, step float64, out []float64) []float64 {
 		out)
 }
 
-func IntSeq(from, to int, out []int) []int {
-	n := to - from
-	if out == nil {
-		out = make([]int, n)
-	} else {
-		if len(out) != n {
-			panic("wrong length for output")
-		}
-	}
-
-	for i := 0; i < n; i++ {
-		out[i] = from
-		from++
-	}
-	return out
-}
-
 func FloatAll(x []float64, f func(float64) bool) bool {
 	for _, val := range x {
 		if !f(val) {
@@ -188,17 +171,6 @@ func FloatWhich(x []float64, f func(float64) bool, out []int) []int {
 		if f(val) {
 			out = append(out, i)
 		}
-	}
-	return out
-}
-
-// PickByIndex picks elements by indices.
-// out may be a prepared output slice or nil,
-// in which case an output slice is created.
-func PickByIndex(x []float64, idx []int, out []float64) []float64 {
-	out = use_float_slice(out, len(idx))
-	for i, j := range idx {
-		out[i] = x[j]
 	}
 	return out
 }

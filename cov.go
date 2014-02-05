@@ -8,7 +8,14 @@ import (
 // FloatCov computes the covariance matrix between member slices of data.
 // All member slices of data must have the same length;
 // this is not checked.
-func FloatCov(data [][]float64, out *dense.Dense) *dense.Dense {
+func FloatCov(
+	// Each member slice is one dimension,
+	// hence dimensionality of data is n equal to len(data).
+	data [][]float64,
+
+	// Output matrix has shape n by n, where
+	// n equals len(data).
+	out *dense.Dense) *dense.Dense {
 	p := len(data)
 	if p < 1 {
 		return nil
@@ -69,10 +76,20 @@ func FloatCor(data [][]float64, out *dense.Dense) *dense.Dense {
 	return out
 }
 
-// FloatWeightedCov computes covariance matrix for weighted data.
+// FloatWeightedCov computes covariance matrix between member slices of
+// data. Elements of each member slice in data are weighted by wt.
+// All member slices of data must have the same length;
+// this is not checked.
 func FloatWeightedCov(
+	// Each member slice is one dimension,
+	// hence dimensionality of data is n equal to len(data).
 	data [][]float64,
+
+	// Weights of elements in each member slice of data.
 	wt []float64,
+
+	// Output matrix has shape n by n, where
+	// n equals len(data).
 	out *dense.Dense) *dense.Dense {
 
 	p := len(data)

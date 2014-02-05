@@ -4,6 +4,15 @@ import (
 	"github.com/zpz/matrix.go/dense"
 )
 
+func xtAx(x []float64, A *dense.Dense) float64 {
+	v := 0.0
+	k := len(x)
+	for i := 0; i < k; i++ {
+		v += FloatDot(A.RowView(i), x) * x[i]
+	}
+	return v
+}
+
 // Mahalanobis computes _squared_ Mahalanobis distance
 // between each row of x and the vector y, with covariance matrix sigma.
 func Mahalanobis(
@@ -19,31 +28,19 @@ func Mahalanobis(
 	assert(r == p && c == p,
 		"Dimensionalities of input data and sigma mismatch")
 
+	if chol, ok := dense.Chol(sigma); ok {
+		sigma = chol.Inv(nil)
+	} else {
+		panic("Cholesky failed on cov matrix")
+	}
+
 	out = use_float_slice(out, n)
 
-	// Diff matrix between x and y.
-	// Each col is an observation; each row is a dimension.
-	// xt has dimensions p, n
-	xt := dense.T(x, nil)
-	for row := 0; row < p; row++ {
-		FloatShift(xt.RowView(row), -y[row], xt.RowView(row))
+	diff := make([]float64, p)
+	for i := 0; i < n; i++ {
+		FloatSubtract(x.RowView(i), y, diff)
+		out[i] = xtAx(diff, sigma)
 	}
 
-	// yy has dimensions p, n
-	if chol, ok := dense.Chol(sigma); ok {
-		yy := chol.Solve(dense.Clone(xt))
-
-		// Element-wise multiplication.
-		yy.Elemult(xt)
-
-		// Col sums of yy.
-		yy.GetRow(0, out)
-		for row := 1; row < p; row++ {
-			FloatAdd(out, yy.RowView(row), out)
-		}
-
-		return out
-	}
-
-	panic("Cholesky failed on cov matrix")
+	return out
 }
