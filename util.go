@@ -87,3 +87,16 @@ func pick_floats(x []float64, index []int, y []float64) []float64 {
 	}
 	return y
 }
+
+// xtAy computes the scalar value that is
+//  x^t * A * y
+// where 'x' and 'y' are treated as column vectors,
+// and '*' is matrix multiplication.
+func xtAy(x []float64, A *dense.Dense, y []float64) float64 {
+	v := 0.0
+	k := len(x)
+	for i := 0; i < k; i++ {
+		v += FloatDot(A.RowView(i), y) * x[i]
+	}
+	return v
+}

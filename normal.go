@@ -51,39 +51,37 @@ func (norm *Normal) Random(
 	return out
 }
 
-// Mvnormal is a data structure for multivariate normal distribution.
-type Mvnormal struct {
-	mean        []float64
-	cov         *dense.Dense
-	cov_det     float64
-	log_cov_det float64
+// MVN is a data structure for multivariate normal distribution.
+type MVN struct {
+	mean     []float64
+	cov      *dense.Dense
+	cov_chol *dense.CholFactors
 }
 
-// NewMvnormal creates a new Mvnormal object and returns a pointer to
+// NewMVN creates a new MVN object and returns a pointer to
 // it. Note that the input mean slice and cov matrix are not deeply
-// copied. They are simply pointed to by the created Mvnormal object.
-func NewMvnormal(mean []float64, cov *dense.Dense) *Mvnormal {
+// copied. They are simply pointed to by the created MVN object.
+func NewMVN(mean []float64, cov *dense.Dense) *MVN {
 	r, c := cov.Dims()
 	assert(r == c && c == len(mean),
 		"Dimensionalities of 'mean' and 'cov' mismatch")
-	cov_det := cov.Det()
-	return &Mvnormal{
-		mean:        mean,
-		cov:         cov,
-		cov_det:     cov_det,
-		log_cov_det: math.Log(cov_det)}
+	chol, ok := dense.Chol(cov)
+	if !ok {
+		panic("Cholesky failed on cov matrix")
+	}
+	return &MVN{mean: mean, cov: cov, cov_chol: chol}
 }
 
-// Dim returns the dimensionality of the Mvnormal distribution mvn.
-func (mvn *Mvnormal) Dim() int {
+// Dim returns the dimensionality of the MVN distribution mvn.
+func (mvn *MVN) Dim() int {
 	return len(mvn.mean)
 }
 
 // Density computes the prob density values for each row of x (as a
-// case, or observation) in the Mvnormal distribution mvn.
+// case, or observation) in the MVN distribution mvn.
 // out either has the correct length (i.e. the number of rows in x)
 // or is nil, in which case a slice is allocated and used.
-func (mvn *Mvnormal) Density(
+func (mvn *MVN) Density(
 	x *dense.Dense,
 	// Each row is a case.
 	out []float64) []float64 {
@@ -92,15 +90,21 @@ func (mvn *Mvnormal) Density(
 	assert(len(mvn.mean) == p,
 		"Dimensionalities of input 'x' and distribution mismatch")
 
+	cov_inv := mvn.cov_chol.Inv(nil)
+	cov_det := mvn.cov_chol.Det()
+
+	diff := make([]float64, p)
+	coef := 1.0 / math.Sqrt(
+		math.Pow(2*math.Pi, float64(p))*cov_det)
+
 	out = use_float_slice(out, n)
 
-	// Mahalanobis distance
-	Mahalanobis(x, mvn.mean, mvn.cov, out)
+	for i := 0; i < n; i++ {
+		FloatSubtract(x.RowView(i), mvn.mean, diff)
 
-	coef := 1.0 / math.Sqrt(
-		math.Pow(2*math.Pi, float64(p))*mvn.cov_det)
+		// Squared Mahalanobis distance.
+		v := xtAy(diff, cov_inv, diff)
 
-	for i, v := range out {
 		out[i] = coef * math.Exp(-0.5*v)
 	}
 
@@ -110,19 +114,19 @@ func (mvn *Mvnormal) Density(
 // Random generates random samples from the multivariate normal
 // distribution mvn.
 // The result is a matrix with each row being a case.
-func (mvn *Mvnormal) Random(
+func (mvn *MVN) Random(
 	n int,
 	_ RandomNumberGenerator,
 	out *dense.Dense) *dense.Dense {
 
 	p := len(mvn.mean)
 
-	chol, ok := dense.Chol(mvn.cov)
-	assert(ok, "Cholesky failed")
-
 	z := dense.DenseView(NewNormal(0., 1.).Random(p*n, &RNG{}, nil), n, p)
 
-	out = dense.Mult(z, dense.T(chol.L(), nil), out)
+	out = dense.Mult(z, dense.T(mvn.cov_chol.L(), nil), out)
+	// TODO: it might help performance (as least save the copy due to
+	// T) if package dense implements something analogous to
+	// 'crossprod' and 'tcrossprod' in R.
 
 	for row := 0; row < n; row++ {
 		FloatAdd(out.RowView(row), mvn.mean, out.RowView(row))
