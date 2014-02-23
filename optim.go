@@ -4,13 +4,16 @@ import (
 	"math"
 )
 
-// Optimize finds the minimum point of a univariate-input function
+// Minimize finds the minimum point of a univariate-input function
 // within a specified interval.
 // This is a direct translation from the Fortran code at
 //   www.netlib.no/notlib/fmm/fmin.f
 // The method is due to Brent.
-// The function optimize in R's stats package uses the same algorithm.
-func Optimize(f func(float64) float64, ax, bx, tol float64) float64 {
+// The function 'optimize' in R's stats package uses the same algorithm.
+//
+// TODO: also return indicator of convergence, objective function value
+// on exit.
+func Minimize(f func(float64) float64, ax, bx, tol float64) (float64, bool) {
 
 	/*
 	       an approximation  x  to the point where  f  attains a minimum  on
@@ -172,5 +175,5 @@ func Optimize(f func(float64) float64, ax, bx, tol float64) float64 {
 		}
 	} /* end of main loop */
 
-	return x
+	return x, true
 }
